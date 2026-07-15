@@ -63,8 +63,29 @@ class ApiService {
 
   // ── RESTAURANTS ───────────────────────────────────────────────────────────
 
-  static Future<List<Restaurant>> getRestaurants() async {
-    final response = await http.get(Uri.parse('$baseUrl/restaurants'));
+  static Future<List<AppUser>> getUsers({String? token}) async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/admin/users'),
+      headers: token == null
+          ? {}
+          : {'Authorization': 'Bearer $token'},
+    );
+    if (response.statusCode == 200) {
+      return _decodeList(response)
+          .map((u) => AppUser.fromJson(u))
+          .toList();
+    }
+    if (response.statusCode == 404) return [];
+    throw Exception('Failed to load users (${response.statusCode})');
+  }
+
+  static Future<List<Restaurant>> getRestaurants({String? token}) async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/restaurants'),
+      headers: token == null
+          ? {}
+          : {'Authorization': 'Bearer $token'},
+    );
     if (response.statusCode == 200) {
       return _decodeList(response)
           .map((r) => Restaurant.fromJson(r))

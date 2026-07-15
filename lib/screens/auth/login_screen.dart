@@ -7,7 +7,6 @@ import '../../services/api_service.dart';
 import '../../services/providers.dart';
 import '../customer/food_feed_screen.dart';
 import '../admin/admin_dashboard.dart';
-import '../restaurant/restaurant_dashboard.dart';
 import '../rider/rider_dashboard.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -28,6 +27,8 @@ class _LoginScreenState extends State<LoginScreen>
   final _signupName    = TextEditingController();
   final _signupEmail   = TextEditingController();
   final _signupPass    = TextEditingController();
+  final _signupCuisine = TextEditingController();
+  final _signupAddress = TextEditingController();
 
   bool _obscureLogin  = true;
   bool _obscureSignup = true;
@@ -52,6 +53,8 @@ class _LoginScreenState extends State<LoginScreen>
     _signupName.dispose();
     _signupEmail.dispose();
     _signupPass.dispose();
+    _signupCuisine.dispose();
+    _signupAddress.dispose();
     super.dispose();
   }
 
@@ -65,13 +68,24 @@ class _LoginScreenState extends State<LoginScreen>
       );
       if (!mounted) return;
 
+      final role = (data['role'] ?? 'customer').toString();
+      final isApproved = data['is_approved'] ?? data['approved'];
+      final isActive = data['is_active'] ?? data['active'];
+
+      if (role == 'restaurant' && isApproved == false) {
+        throw Exception('Your restaurant account is still pending approval.');
+      }
+      if (isActive == false) {
+        throw Exception('This account has been deactivated.');
+      }
+
       Provider.of<AuthProvider>(context, listen: false).login(
         token:  data['access_token'],
         userId: data['user_id'],
-        role:   data['role'],
+        role:   role,
       );
 
-      _routeByRole(data['role']);
+      _routeByRole(role);
     } catch (e) {
       if (!mounted) return;
       _showError(e.toString().replaceAll('Exception: ', ''));
@@ -84,7 +98,7 @@ class _LoginScreenState extends State<LoginScreen>
     if (!_signupKey.currentState!.validate()) return;
     setState(() => _isLoading = true);
     try {
-      await ApiService.register(
+      final registrationData = await ApiService.register(
         name:     _signupName.text.trim(),
         email:    _signupEmail.text.trim(),
         password: _signupPass.text.trim(),
@@ -93,6 +107,38 @@ class _LoginScreenState extends State<LoginScreen>
       if (!mounted) return;
 
       if (_signupRole == 'restaurant') {
+        String? token = registrationData['access_token']?.toString();
+        if ((token == null || token.isEmpty) && registrationData['token'] != null) {
+          token = registrationData['token'].toString();
+        }
+
+        if ((token == null || token.isEmpty)) {
+          final loginData = await ApiService.login(
+            _signupEmail.text.trim(),
+            _signupPass.text.trim(),
+          );
+          token = loginData['access_token']?.toString();
+        }
+
+        if (token != null && token.isNotEmpty) {
+          try {
+            await ApiService.createRestaurant(
+              token: token,
+              name: _signupName.text.trim(),
+              cuisineType: _signupCuisine.text.trim().isNotEmpty
+                  ? _signupCuisine.text.trim()
+                  : 'Not specified',
+              address: _signupAddress.text.trim().isNotEmpty
+                  ? _signupAddress.text.trim()
+                  : 'Pending review',
+              email: _signupEmail.text.trim(),
+              password: _signupPass.text.trim(),
+            );
+          } catch (_) {
+            // The user account exists; the approval profile will be reviewed by the admin.
+          }
+        }
+
         _showVendorDialog();
       } else {
         // Pre-fill login email so user doesn't have to retype it
@@ -104,6 +150,8 @@ class _LoginScreenState extends State<LoginScreen>
         _signupName.clear();
         _signupEmail.clear();
         _signupPass.clear();
+        _signupCuisine.clear();
+        _signupAddress.clear();
 
         // Switch to Sign In tab
         setState(() => _tabIndex = 0);

@@ -1,3 +1,27 @@
+class AppUser {
+  final int id;
+  final String name;
+  final String email;
+  final String role;
+  final bool isActive;
+
+  AppUser({
+    required this.id,
+    required this.name,
+    required this.email,
+    required this.role,
+    required this.isActive,
+  });
+
+  factory AppUser.fromJson(Map<String, dynamic> json) => AppUser(
+        id: json['id'],
+        name: json['name'] ?? json['full_name'] ?? 'Unknown user',
+        email: json['email'] ?? '',
+        role: json['role'] ?? 'customer',
+        isActive: json['is_active'] ?? true,
+      );
+}
+
 class Restaurant {
   final int id;
   final String name;

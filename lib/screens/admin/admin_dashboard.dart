@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../theme.dart';
-import '../../widgets/widgets.dart';
+import '../../services/api_service.dart';
 import '../../services/providers.dart';
+import '../../models/models.dart';
 import '../auth/login_screen.dart';
 
 class AdminDashboard extends StatefulWidget {
@@ -487,13 +488,60 @@ class _OverviewPage extends StatelessWidget {
 }
 
 // ─── APPROVALS ────────────────────────────────────────────────────────────────
-class _ApprovalsPage extends StatelessWidget {
+class _ApprovalsPage extends StatefulWidget {
   const _ApprovalsPage();
+
+  @override
+  State<_ApprovalsPage> createState() => _ApprovalsPageState();
+}
+
+class _ApprovalsPageState extends State<_ApprovalsPage> {
+  List<Restaurant> _pending = [];
+  bool _loading = true;
+  String _error = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    setState(() {
+      _loading = true;
+      _error = '';
+    });
+
+    try {
+      final auth = Provider.of<AuthProvider>(context, listen: false);
+      final restaurants = await ApiService.getRestaurants(token: auth.token);
+      if (!mounted) return;
+      setState(() => _pending = restaurants.where((r) => !r.isApproved).toList());
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _error = e.toString().replaceAll('Exception: ', ''));
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final textPri = AppColors.textPrimary(context);
     final textSec = AppColors.textSecondary(context);
+
+    if (_loading) {
+      return const Center(child: CircularProgressIndicator(color: AppTheme.accent));
+    }
+
+    if (_error.isNotEmpty) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Text(_error, style: TextStyle(color: AppColors.textSecondary(context))),
+        ),
+      );
+    }
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(28),
@@ -508,15 +556,26 @@ class _ApprovalsPage extends StatelessWidget {
           Text('Review and approve new restaurant registrations',
               style: TextStyle(color: textSec, fontSize: 13)),
           const SizedBox(height: 24),
-          _approvalCard(context, 'Kofi\'s Kitchen',
-              'Local Ghanaian', 'East Legon, Accra',
-              'owner@kofis.com', '2 hours ago'),
-          _approvalCard(context, 'Pizza Palace',
-              'Italian / Pizza', 'Osu, Accra',
-              'info@pizzapalace.com', '5 hours ago'),
-          _approvalCard(context, 'Auntie Ama\'s',
-              'Local Ghanaian', 'Cantonments, Accra',
-              'ama@aunties.com', '1 day ago'),
+          if (_pending.isEmpty)
+            Container(
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: AppColors.card(context),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: AppColors.border(context)),
+              ),
+              child: Text('No pending restaurants to review.',
+                  style: TextStyle(color: AppColors.textSecondary(context))),
+            )
+          else
+            ..._pending.map((restaurant) => _approvalCard(
+                context,
+                restaurant.name,
+                restaurant.cuisineType,
+                restaurant.address,
+                restaurant.email,
+                restaurant.isApproved ? 'Approved' : 'Pending',
+              )),
         ],
       ),
     );
@@ -574,7 +633,7 @@ class _ApprovalsPage extends StatelessWidget {
                   border: Border.all(
                       color: AppTheme.warning.withOpacity(0.3)),
                 ),
-                child: const Text('Pending',
+                child: Text(time,
                     style: TextStyle(
                         color: AppTheme.warning,
                         fontSize: 11,
@@ -777,19 +836,73 @@ class _RiderDeskPage extends StatelessWidget {
 }
 
 // ─── USERS ────────────────────────────────────────────────────────────────────
-class _UsersPage extends StatelessWidget {
+class _UsersPage extends StatefulWidget {
   const _UsersPage();
+
+  @override
+  State<_UsersPage> createState() => _UsersPageState();
+}
+
+class _UsersPageState extends State<_UsersPage> {
+  List<AppUser> _users = [];
+  bool _loading = true;
+  String _error = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    setState(() {
+      _loading = true;
+      _error = '';
+    });
+
+    try {
+      final auth = Provider.of<AuthProvider>(context, listen: false);
+      final users = await ApiService.getUsers(token: auth.token);
+      if (!mounted) return;
+      setState(() => _users = users);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _error = e.toString().replaceAll('Exception: ', ''));
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Color _roleColor(String role) {
+    switch (role) {
+      case 'admin':
+        return AppTheme.danger;
+      case 'restaurant':
+        return AppTheme.warning;
+      case 'rider':
+        return AppTheme.accent;
+      default:
+        return AppTheme.success;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final textPri = AppColors.textPrimary(context);
     final textSec = AppColors.textSecondary(context);
-    final users = [
-      ('Test Customer',    'customer@test.com',  'customer',   AppTheme.success),
-      ('Test Rider',       'rider@test.com',     'rider',      AppTheme.accent),
-      ('Restaurant Owner', 'owner@test.com',     'restaurant', AppTheme.warning),
-      ('Admin User',       'admin@findfood.com', 'admin',      AppTheme.danger),
-    ];
+
+    if (_loading) {
+      return const Center(child: CircularProgressIndicator(color: AppTheme.accent));
+    }
+
+    if (_error.isNotEmpty) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Text(_error, style: TextStyle(color: AppColors.textSecondary(context))),
+        ),
+      );
+    }
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(28),
@@ -807,14 +920,13 @@ class _UsersPage extends StatelessWidget {
                           color: textPri, fontSize: 26,
                           fontWeight: FontWeight.w800,
                           letterSpacing: -0.5)),
-                  Text('${users.length} registered accounts',
+                  Text('${_users.length} registered accounts',
                       style: TextStyle(color: textSec, fontSize: 13)),
                 ],
               ),
             ],
           ),
           const SizedBox(height: 24),
-          // Table header
           Container(
             padding: const EdgeInsets.symmetric(
                 horizontal: 16, vertical: 10),
@@ -850,7 +962,6 @@ class _UsersPage extends StatelessWidget {
               ],
             ),
           ),
-          // Table rows
           Container(
             decoration: BoxDecoration(
               color: AppColors.card(context),
@@ -863,14 +974,15 @@ class _UsersPage extends StatelessWidget {
               ),
             ),
             child: Column(
-              children: users.asMap().entries.map((e) {
-                final i = e.key;
-                final u = e.value;
+              children: _users.asMap().entries.map((entry) {
+                final i = entry.key;
+                final user = entry.value;
+                final roleColor = _roleColor(user.role);
                 return Container(
                   padding: const EdgeInsets.symmetric(
                       horizontal: 16, vertical: 14),
                   decoration: BoxDecoration(
-                    border: i < users.length - 1
+                    border: i < _users.length - 1
                         ? Border(
                             bottom: BorderSide(
                                 color: AppColors.border(context)))
@@ -884,20 +996,18 @@ class _UsersPage extends StatelessWidget {
                           children: [
                             CircleAvatar(
                               radius: 15,
-                              backgroundColor:
-                                  u.$4.withOpacity(0.12),
-                              child: Text(u.$1[0],
+                              backgroundColor: roleColor.withOpacity(0.12),
+                              child: Text(user.name.isNotEmpty ? user.name[0] : '?',
                                   style: TextStyle(
-                                      color: u.$4,
+                                      color: roleColor,
                                       fontSize: 12,
                                       fontWeight: FontWeight.w800)),
                             ),
                             const SizedBox(width: 10),
                             Expanded(
-                              child: Text(u.$1,
+                              child: Text(user.name,
                                   style: TextStyle(
-                                      color: AppColors.textPrimary(
-                                          context),
+                                      color: AppColors.textPrimary(context),
                                       fontSize: 13,
                                       fontWeight: FontWeight.w600),
                                   overflow: TextOverflow.ellipsis),
@@ -907,10 +1017,9 @@ class _UsersPage extends StatelessWidget {
                       ),
                       Expanded(
                         flex: 4,
-                        child: Text(u.$2,
+                        child: Text(user.email,
                             style: TextStyle(
-                                color:
-                                    AppColors.textSecondary(context),
+                                color: AppColors.textSecondary(context),
                                 fontSize: 12),
                             overflow: TextOverflow.ellipsis),
                       ),
@@ -920,12 +1029,12 @@ class _UsersPage extends StatelessWidget {
                           padding: const EdgeInsets.symmetric(
                               horizontal: 10, vertical: 4),
                           decoration: BoxDecoration(
-                            color: u.$4.withOpacity(0.1),
+                            color: roleColor.withOpacity(0.1),
                             borderRadius: BorderRadius.circular(20),
                           ),
-                          child: Text(u.$3,
+                          child: Text(user.role,
                               style: TextStyle(
-                                  color: u.$4,
+                                  color: roleColor,
                                   fontSize: 11,
                                   fontWeight: FontWeight.w700),
                               textAlign: TextAlign.center),
