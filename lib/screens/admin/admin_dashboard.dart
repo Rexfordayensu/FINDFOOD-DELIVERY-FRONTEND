@@ -14,6 +14,8 @@ class AdminDashboard extends StatefulWidget {
 
 class _AdminDashboardState extends State<AdminDashboard> {
   int _selectedIndex = 0;
+  int _pendingCount = 0;
+  bool _loadingCount = true;
 
   final _navItems = [
     {'icon': Icons.grid_view_rounded,           'label': 'Overview'},
@@ -23,14 +25,39 @@ class _AdminDashboardState extends State<AdminDashboard> {
     {'icon': Icons.settings_outlined,            'label': 'Settings'},
   ];
 
+  @override
+  void initState() {
+    super.initState();
+    _loadPendingCount();
+  }
+
+  Future<void> _loadPendingCount() async {
+    try {
+      final auth = Provider.of<AuthProvider>(context, listen: false);
+      final restaurants = await ApiService.getPendingRestaurants(token: auth.token);
+      if (mounted) {
+        setState(() {
+          _pendingCount = restaurants.length;
+          _loadingCount = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) setState(() => _loadingCount = false);
+    }
+  }
+
+  void _updatePendingCount() {
+    _loadPendingCount();
+  }
+
   Widget _buildPage() {
     switch (_selectedIndex) {
-      case 0: return const _OverviewPage();
-      case 1: return const _ApprovalsPage();
+      case 0: return _OverviewPage(pendingCount: _pendingCount);
+      case 1: return _ApprovalsPage(onApprovalChanged: _updatePendingCount);
       case 2: return const _RiderDeskPage();
       case 3: return const _UsersPage();
       case 4: return const _AdminSettingsPage();
-      default: return const _OverviewPage();
+      default: return _OverviewPage(pendingCount: _pendingCount);
     }
   }
 
@@ -147,8 +174,8 @@ class _AdminDashboardState extends State<AdminDashboard> {
                                 color: AppTheme.danger.withOpacity(0.15),
                                 borderRadius: BorderRadius.circular(10),
                               ),
-                              child: const Text('2',
-                                  style: TextStyle(
+                              child: Text(_pendingCount.toString(),
+                                  style: const TextStyle(
                                       color: AppTheme.danger,
                                       fontSize: 10,
                                       fontWeight: FontWeight.w800)),
@@ -281,7 +308,9 @@ class _AdminDashboardState extends State<AdminDashboard> {
 
 // ─── OVERVIEW ─────────────────────────────────────────────────────────────────
 class _OverviewPage extends StatelessWidget {
-  const _OverviewPage();
+  final int pendingCount;
+  
+  const _OverviewPage({this.pendingCount = 0});
 
   @override
   Widget build(BuildContext context) {
@@ -355,7 +384,7 @@ class _OverviewPage extends StatelessWidget {
                     AppTheme.success, w),
                 const SizedBox(width: 14),
                 _statCard(context, 'Restaurants', '58',
-                    '2 pending', Icons.storefront_rounded,
+                    '${pendingCount} pending', Icons.storefront_rounded,
                     AppTheme.warning, w),
                 const SizedBox(width: 14),
                 _statCard(context, 'Revenue Today', 'GH₵ 12,440',
@@ -489,7 +518,9 @@ class _OverviewPage extends StatelessWidget {
 
 // ─── APPROVALS ────────────────────────────────────────────────────────────────
 class _ApprovalsPage extends StatefulWidget {
-  const _ApprovalsPage();
+  final VoidCallback? onApprovalChanged;
+  
+  const _ApprovalsPage({this.onApprovalChanged});
 
   @override
   State<_ApprovalsPage> createState() => _ApprovalsPageState();
@@ -499,6 +530,8 @@ class _ApprovalsPageState extends State<_ApprovalsPage> {
   List<Restaurant> _pending = [];
   bool _loading = true;
   String _error = '';
+  Set<int> _approvingIds = {};
+  Set<int> _rejectingIds = {};
 
   @override
   void initState() {
@@ -514,14 +547,98 @@ class _ApprovalsPageState extends State<_ApprovalsPage> {
 
     try {
       final auth = Provider.of<AuthProvider>(context, listen: false);
-      final restaurants = await ApiService.getRestaurants(token: auth.token);
+      final restaurants = await ApiService.getPendingRestaurants(token: auth.token);
       if (!mounted) return;
-      setState(() => _pending = restaurants.where((r) => !r.isApproved).toList());
+      setState(() => _pending = restaurants);
     } catch (e) {
       if (!mounted) return;
       setState(() => _error = e.toString().replaceAll('Exception: ', ''));
     } finally {
       if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _approve(Restaurant restaurant) async {
+    setState(() => _approvingIds.add(restaurant.id));
+    try {
+      final auth = Provider.of<AuthProvider>(context, listen: false);
+      await ApiService.approveRestaurant(
+        restaurantId: restaurant.id,
+        token: auth.token ?? '',
+      );
+      if (!mounted) return;
+      setState(() => _pending.removeWhere((r) => r.id == restaurant.id));
+      widget.onApprovalChanged?.call();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('${restaurant.name} approved!'),
+          backgroundColor: AppTheme.success,
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(e.toString().replaceAll('Exception: ', '')),
+          backgroundColor: AppTheme.danger,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _approvingIds.remove(restaurant.id));
+    }
+  }
+
+  Future<void> _reject(Restaurant restaurant) async {
+    // Show confirmation dialog
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Reject Application?'),
+        content: Text('Are you sure you want to reject ${restaurant.name}?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _rejectRestaurant(restaurant);
+            },
+            child: const Text('Reject'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _rejectRestaurant(Restaurant restaurant) async {
+    setState(() => _rejectingIds.add(restaurant.id));
+    try {
+      final auth = Provider.of<AuthProvider>(context, listen: false);
+      await ApiService.rejectRestaurant(
+        restaurantId: restaurant.id,
+        token: auth.token ?? '',
+      );
+      if (!mounted) return;
+      setState(() => _pending.removeWhere((r) => r.id == restaurant.id));
+      widget.onApprovalChanged?.call();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('${restaurant.name} rejected.'),
+          backgroundColor: AppTheme.danger,
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(e.toString().replaceAll('Exception: ', '')),
+          backgroundColor: AppTheme.danger,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _rejectingIds.remove(restaurant.id));
     }
   }
 
@@ -570,19 +687,25 @@ class _ApprovalsPageState extends State<_ApprovalsPage> {
           else
             ..._pending.map((restaurant) => _approvalCard(
                 context,
-                restaurant.name,
-                restaurant.cuisineType,
-                restaurant.address,
-                restaurant.email,
-                restaurant.isApproved ? 'Approved' : 'Pending',
+                restaurant,
+                () => _approve(restaurant),
+                () => _reject(restaurant),
+                _approvingIds.contains(restaurant.id),
+                _rejectingIds.contains(restaurant.id),
               )),
         ],
       ),
     );
   }
 
-  Widget _approvalCard(BuildContext ctx, String name, String cuisine,
-      String addr, String email, String time) {
+  Widget _approvalCard(
+    BuildContext ctx,
+    Restaurant restaurant,
+    VoidCallback onApprove,
+    VoidCallback onReject,
+    bool isApproving,
+    bool isRejecting,
+  ) {
     return Container(
       margin: const EdgeInsets.only(bottom: 14),
       padding: const EdgeInsets.all(18),
@@ -612,12 +735,12 @@ class _ApprovalsPageState extends State<_ApprovalsPage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(name,
+                    Text(restaurant.name,
                         style: TextStyle(
                             color: AppColors.textPrimary(ctx),
                             fontSize: 15,
                             fontWeight: FontWeight.w700)),
-                    Text('$cuisine · $addr',
+                    Text('${restaurant.cuisineType} · ${restaurant.address}',
                         style: TextStyle(
                             color: AppColors.textSecondary(ctx),
                             fontSize: 12)),
@@ -633,7 +756,7 @@ class _ApprovalsPageState extends State<_ApprovalsPage> {
                   border: Border.all(
                       color: AppTheme.warning.withOpacity(0.3)),
                 ),
-                child: Text(time,
+                child: Text('Pending',
                     style: TextStyle(
                         color: AppTheme.warning,
                         fontSize: 11,
@@ -649,16 +772,20 @@ class _ApprovalsPageState extends State<_ApprovalsPage> {
                 Icon(Icons.email_outlined,
                     size: 13, color: AppColors.textHint(ctx)),
                 const SizedBox(width: 4),
-                Text(email,
+                Text(restaurant.email,
                     style: TextStyle(
                         color: AppColors.textHint(ctx), fontSize: 12)),
                 const Spacer(),
-                Icon(Icons.access_time_rounded,
+                Icon(Icons.location_on_outlined,
                     size: 13, color: AppColors.textHint(ctx)),
                 const SizedBox(width: 4),
-                Text(time,
-                    style: TextStyle(
-                        color: AppColors.textHint(ctx), fontSize: 12)),
+                Expanded(
+                  child: Text(restaurant.address,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                          color: AppColors.textHint(ctx), fontSize: 12)),
+                ),
               ],
             ),
           ),
@@ -667,6 +794,7 @@ class _ApprovalsPageState extends State<_ApprovalsPage> {
             children: [
               Expanded(
                 child: GestureDetector(
+                  onTap: isApproving ? null : onApprove,
                   child: Container(
                     padding: const EdgeInsets.symmetric(vertical: 10),
                     decoration: BoxDecoration(
@@ -675,14 +803,24 @@ class _ApprovalsPageState extends State<_ApprovalsPage> {
                       border: Border.all(
                           color: AppTheme.success.withOpacity(0.3)),
                     ),
-                    child: const Row(
+                    child: Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(Icons.check_rounded,
-                            color: AppTheme.success, size: 16),
-                        SizedBox(width: 6),
-                        Text('Approve',
-                            style: TextStyle(
+                        if (isApproving)
+                          const SizedBox(
+                            width: 14,
+                            height: 14,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              valueColor: AlwaysStoppedAnimation(AppTheme.success),
+                            ),
+                          )
+                        else
+                          const Icon(Icons.check_rounded,
+                              color: AppTheme.success, size: 16),
+                        const SizedBox(width: 6),
+                        Text(isApproving ? 'Approving...' : 'Approve',
+                            style: const TextStyle(
                                 color: AppTheme.success,
                                 fontWeight: FontWeight.w700,
                                 fontSize: 13)),
@@ -693,26 +831,39 @@ class _ApprovalsPageState extends State<_ApprovalsPage> {
               ),
               const SizedBox(width: 10),
               Expanded(
-                child: Container(
-                  padding: const EdgeInsets.symmetric(vertical: 10),
-                  decoration: BoxDecoration(
-                    color: AppTheme.danger.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(
-                        color: AppTheme.danger.withOpacity(0.3)),
-                  ),
-                  child: const Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.close_rounded,
-                          color: AppTheme.danger, size: 16),
-                      SizedBox(width: 6),
-                      Text('Reject',
-                          style: TextStyle(
-                              color: AppTheme.danger,
-                              fontWeight: FontWeight.w700,
-                              fontSize: 13)),
-                    ],
+                child: GestureDetector(
+                  onTap: isRejecting ? null : onReject,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                    decoration: BoxDecoration(
+                      color: AppTheme.danger.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
+                          color: AppTheme.danger.withOpacity(0.3)),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        if (isRejecting)
+                          const SizedBox(
+                            width: 14,
+                            height: 14,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              valueColor: AlwaysStoppedAnimation(AppTheme.danger),
+                            ),
+                          )
+                        else
+                          const Icon(Icons.close_rounded,
+                              color: AppTheme.danger, size: 16),
+                        const SizedBox(width: 6),
+                        Text(isRejecting ? 'Rejecting...' : 'Reject',
+                            style: const TextStyle(
+                                color: AppTheme.danger,
+                                fontWeight: FontWeight.w700,
+                                fontSize: 13)),
+                      ],
+                    ),
                   ),
                 ),
               ),

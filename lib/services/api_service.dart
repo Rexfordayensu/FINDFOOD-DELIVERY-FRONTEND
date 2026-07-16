@@ -45,16 +45,25 @@ class ApiService {
     required String email,
     required String password,
     required String role,
+    String? cuisineType,
+    String? address,
   }) async {
+    final body = {
+      'name': name,
+      'email': email,
+      'password': password,
+      'role': role,
+    };
+
+    if (role == 'restaurant') {
+      body['cuisine_type'] = cuisineType ?? '';
+      body['address'] = address ?? '';
+    }
+
     final response = await http.post(
       Uri.parse('$baseUrl/register'),
       headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({
-        'name': name,
-        'email': email,
-        'password': password,
-        'role': role,
-      }),
+      body: jsonEncode(body),
     );
     final data = _decode(response);
     if (response.statusCode == 201) return data;
@@ -92,6 +101,49 @@ class ApiService {
           .toList();
     }
     throw Exception('Failed to load restaurants (${response.statusCode})');
+  }
+
+  static Future<List<Restaurant>> getPendingRestaurants({String? token}) async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/restaurants?restaurant_status=pending'),
+      headers: token == null
+          ? {}
+          : {'Authorization': 'Bearer $token'},
+    );
+    if (response.statusCode == 200) {
+      return _decodeList(response)
+          .map((r) => Restaurant.fromJson(r))
+          .toList();
+    }
+    throw Exception('Failed to load pending restaurants (${response.statusCode})');
+  }
+
+  static Future<void> approveRestaurant({
+    required int restaurantId,
+    required String token,
+  }) async {
+    final response = await http.put(
+      Uri.parse('$baseUrl/admin/restaurants/$restaurantId/approve'),
+      headers: {'Authorization': 'Bearer $token'},
+    );
+    if (response.statusCode != 200) {
+      final data = _decode(response);
+      throw Exception(data['detail'] ?? 'Failed to approve restaurant (${response.statusCode})');
+    }
+  }
+
+  static Future<void> rejectRestaurant({
+    required int restaurantId,
+    required String token,
+  }) async {
+    final response = await http.delete(
+      Uri.parse('$baseUrl/admin/restaurants/$restaurantId'),
+      headers: {'Authorization': 'Bearer $token'},
+    );
+    if (response.statusCode != 200) {
+      final data = _decode(response);
+      throw Exception(data['detail'] ?? 'Failed to reject restaurant (${response.statusCode})');
+    }
   }
 
   static Future<Restaurant> createRestaurant({
@@ -141,17 +193,17 @@ class ApiService {
     required String? description,
     required int price,
   }) async {
+    final uri = Uri.parse('$baseUrl/restaurants/$restaurantId/menu')
+        .replace(queryParameters: {
+      'name': name,
+      'price': price.toString(),
+      'description': description ?? '',
+    });
     final response = await http.post(
-      Uri.parse('$baseUrl/restaurants/$restaurantId/menu'),
+      uri,
       headers: {
-        'Content-Type': 'application/json',
         'Authorization': 'Bearer $token',
       },
-      body: jsonEncode({
-        'name': name,
-        'description': description,
-        'price': price,
-      }),
     );
     final data = _decode(response);
     if (response.statusCode == 201) return MenuItem.fromJson(data);

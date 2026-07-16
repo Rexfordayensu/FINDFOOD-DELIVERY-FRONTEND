@@ -98,47 +98,21 @@ class _LoginScreenState extends State<LoginScreen>
     if (!_signupKey.currentState!.validate()) return;
     setState(() => _isLoading = true);
     try {
-      final registrationData = await ApiService.register(
-        name:     _signupName.text.trim(),
-        email:    _signupEmail.text.trim(),
-        password: _signupPass.text.trim(),
-        role:     _signupRole,
+      await ApiService.register(
+        name:        _signupName.text.trim(),
+        email:       _signupEmail.text.trim(),
+        password:    _signupPass.text.trim(),
+        role:        _signupRole,
+        cuisineType: _signupRole == 'restaurant'
+            ? _signupCuisine.text.trim()
+            : null,
+        address:     _signupRole == 'restaurant'
+            ? _signupAddress.text.trim()
+            : null,
       );
       if (!mounted) return;
 
       if (_signupRole == 'restaurant') {
-        String? token = registrationData['access_token']?.toString();
-        if ((token == null || token.isEmpty) && registrationData['token'] != null) {
-          token = registrationData['token'].toString();
-        }
-
-        if ((token == null || token.isEmpty)) {
-          final loginData = await ApiService.login(
-            _signupEmail.text.trim(),
-            _signupPass.text.trim(),
-          );
-          token = loginData['access_token']?.toString();
-        }
-
-        if (token != null && token.isNotEmpty) {
-          try {
-            await ApiService.createRestaurant(
-              token: token,
-              name: _signupName.text.trim(),
-              cuisineType: _signupCuisine.text.trim().isNotEmpty
-                  ? _signupCuisine.text.trim()
-                  : 'Not specified',
-              address: _signupAddress.text.trim().isNotEmpty
-                  ? _signupAddress.text.trim()
-                  : 'Pending review',
-              email: _signupEmail.text.trim(),
-              password: _signupPass.text.trim(),
-            );
-          } catch (_) {
-            // The user account exists; the approval profile will be reviewed by the admin.
-          }
-        }
-
         _showVendorDialog();
       } else {
         // Pre-fill login email so user doesn't have to retype it
@@ -493,6 +467,24 @@ class _LoginScreenState extends State<LoginScreen>
             validator: (v) =>
                 (v == null || v.length < 6) ? 'Min 6 characters' : null,
           ),
+          if (_signupRole == 'restaurant') ...[
+            const SizedBox(height: 14),
+            AppTextField(
+              controller: _signupCuisine,
+              hint: 'Cuisine type',
+              prefixIcon: Icons.restaurant_menu_outlined,
+              validator: (v) =>
+                  (v == null || v.trim().isEmpty) ? 'Cuisine type is required' : null,
+            ),
+            const SizedBox(height: 14),
+            AppTextField(
+              controller: _signupAddress,
+              hint: 'Restaurant address',
+              prefixIcon: Icons.location_on_outlined,
+              validator: (v) =>
+                  (v == null || v.trim().isEmpty) ? 'Address is required' : null,
+            ),
+          ],
           const SizedBox(height: 20),
 
           PrimaryButton(
