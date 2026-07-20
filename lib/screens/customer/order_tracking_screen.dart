@@ -1,11 +1,25 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../../theme.dart';
 import '../../widgets/widgets.dart';
 import '../../models/models.dart';
+import '../../services/api_service.dart';
+import '../../services/providers.dart';
+import '../customer/food_feed_screen.dart';
 
-class OrderTrackingScreen extends StatelessWidget {
+class OrderTrackingScreen extends StatefulWidget {
   final Order order;
   const OrderTrackingScreen({super.key, required this.order});
+
+  @override
+  State<OrderTrackingScreen> createState() => _OrderTrackingScreenState();
+}
+
+class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
+  late Order _order;
+  Timer? _pollTimer;
+  
 
   static const _steps = [
     {'status': 'pending',          'label': 'Order placed',      'icon': Icons.receipt_long_outlined},
@@ -15,46 +29,159 @@ class OrderTrackingScreen extends StatelessWidget {
     {'status': 'delivered',        'label': 'Delivered',         'icon': Icons.home_outlined},
   ];
 
-    int get _currentStep {
-    const statusOrder = [
-      'pending', 'preparing', 'ready', 'out_for_delivery', 'delivered'
-    ];
-    
-    final index = statusOrder.indexOf(order.status); 
-    
-    // Fallback to 0 (pending) if the status string doesn't match perfectly
-    return index == -1 ? 0 : index;
+  static const _statusOrder = [
+    'pending', 'preparing', 'ready', 'out_for_delivery', 'delivered'
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    _order = widget.order;
+    _startPolling();
   }
 
+  @override
+  void dispose() {
+    _pollTimer?.cancel();
+    super.dispose();
+  }
+
+  // ── Poll backend every 4s for live status updates ──────────────────────────
+  void _startPolling() {
+    final auth = Provider.of<AuthProvider>(context, listen: false);
+    if (auth.token == null) return;
+
+    _pollTimer = Timer.periodic(const Duration(seconds: 4), (_) async {
+      try {
+        final orders = await ApiService.getMyOrders(auth.token!);
+        final updated = orders.where((o) => o.id == _order.id).firstOrNull;
+        if (updated != null && mounted && updated.status != _order.status) {
+          setState(() => _order = updated);
+          if (updated.status == 'delivered') {
+            _pollTimer?.cancel();
+            _showDeliveredCelebration();
+          }
+        }
+      } catch (_) {
+        // Silent — keep last known state
+      }
+    });
+  }
+
+  void _showDeliveredCelebration() {
+    showModalBottomSheet(
+      context: context,
+      isDismissible: false,
+      backgroundColor: AppColors.card(context),
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      builder: (_) => Padding(
+        padding: const EdgeInsets.all(28),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TweenAnimationBuilder<double>(
+              tween: Tween(begin: 0.0, end: 1.0),
+              duration: const Duration(milliseconds: 600),
+              curve: Curves.elasticOut,
+              builder: (_, v, child) =>
+                  Transform.scale(scale: v, child: child),
+              child: Container(
+                width: 90, height: 90,
+                decoration: BoxDecoration(
+                  color: AppTheme.success.withValues(alpha: 0.12),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.celebration_rounded,
+                    color: AppTheme.success, size: 44),
+              ),
+            ),
+            const SizedBox(height: 20),
+            Text('Delivered!',
+                style: TextStyle(
+                    color: AppColors.textPrimary(context),
+                    fontSize: 22,
+                    fontWeight: FontWeight.w800)),
+            const SizedBox(height: 8),
+            Text('Enjoy your meal! How was your experience?',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: AppColors.textSecondary(context))),
+            const SizedBox(height: 20),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: List.generate(5, (i) => const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 3),
+                child: Icon(Icons.star_rounded,
+                    color: AppTheme.accent, size: 32),
+              )),
+            ),
+            const SizedBox(height: 24),
+            PrimaryButton(
+              label: 'Back to home',
+              onPressed: () => Navigator.pushAndRemoveUntil(
+                context,
+                MaterialPageRoute(builder: (_) => const FoodFeedScreen()),
+                (_) => false,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  int get _currentStep => _statusOrder.indexOf(_order.status);
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Order #${order.id}'),
+        title: Text('Order #${_order.id}'),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 18),
-          onPressed: () => Navigator.popUntil(context, (r) => r.isFirst),
+          onPressed: () =>
+              Navigator.popUntil(context, (r) => r.isFirst),
         ),
+        actions: [
+          // Live indicator
+          Padding(
+            padding: const EdgeInsets.only(right: 16),
+            child: Row(
+              children: [
+                Container(
+                  width: 8, height: 8,
+                  decoration: const BoxDecoration(
+                      color: AppTheme.success, shape: BoxShape.circle),
+                ),
+                const SizedBox(width: 6),
+                const Text('Live',
+                    style: TextStyle(
+                        color: AppTheme.success,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600)),
+              ],
+            ),
+          ),
+        ],
       ),
       body: ListView(
         padding: const EdgeInsets.all(20),
         children: [
-          // ── ETA Card ──────────────────────────────────────────
+          // ── ETA Card ──────────────────────────────────────
           Container(
             padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
               color: AppTheme.accentDim,
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: AppTheme.accent.withOpacity(0.3)),
+              border: Border.all(color: AppTheme.accent.withValues(alpha: 0.3)),
             ),
             child: Column(
               children: [
                 const Icon(Icons.delivery_dining_rounded,
                     color: AppTheme.accent, size: 36),
                 const SizedBox(height: 10),
-                const Text('Estimated arrival',
-                    style: AppText.body),
+                Text('Estimated arrival',
+                    style: TextStyle(color: AppColors.textSecondary(context))),
                 const SizedBox(height: 6),
                 const Text('25–35 min',
                     style: TextStyle(
@@ -64,30 +191,33 @@ class OrderTrackingScreen extends StatelessWidget {
                       letterSpacing: -0.5,
                     )),
                 const SizedBox(height: 8),
-                StatusBadge(status: order.status),
+                StatusBadge(status: _order.status),
               ],
             ),
           ),
           const SizedBox(height: 28),
 
-          // ── Status steps ──────────────────────────────────────
-          const Text('Order status', style: AppText.heading),
+          // ── Status steps ──────────────────────────────────
+          Text('Order status',
+              style: TextStyle(
+                  color: AppColors.textPrimary(context),
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700)),
           const SizedBox(height: 16),
           ..._steps.asMap().entries.map((entry) {
-            final i     = entry.key;
-            final step  = entry.value;
-            final curr  = _currentStep;
-            final done  = i < curr;
+            final i      = entry.key;
+            final step   = entry.value;
+            final curr   = _currentStep;
+            final done   = i < curr;
             final active = i == curr;
 
             return Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Dot + line
                 Column(
                   children: [
                     AnimatedContainer(
-                      duration: const Duration(milliseconds: 300),
+                      duration: const Duration(milliseconds: 400),
                       width: 36, height: 36,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
@@ -95,29 +225,36 @@ class OrderTrackingScreen extends StatelessWidget {
                             ? AppTheme.success
                             : active
                                 ? AppTheme.accent
-                                : AppTheme.surface,
+                                : AppColors.surface(context),
                         border: Border.all(
                           color: done
                               ? AppTheme.success
                               : active
                                   ? AppTheme.accent
-                                  : AppTheme.darkBorder,
+                                  : AppColors.border(context),
                         ),
                       ),
-                      child: Icon(
-                        done ? Icons.check_rounded : step['icon'] as IconData,
-                        size: 18,
-                        color: done
-                            ? Colors.white
-                            : active
-                                ? AppTheme.black
-                                : AppTheme.textHint,
-                      ),
+                      child: active
+                          ? const Padding(
+                              padding: EdgeInsets.all(8),
+                              child: CircularProgressIndicator(
+                                  color: Colors.black, strokeWidth: 2),
+                            )
+                          : Icon(
+                              done ? Icons.check_rounded
+                                   : step['icon'] as IconData,
+                              size: 18,
+                              color: done
+                                  ? Colors.white
+                                  : AppColors.textHint(context),
+                            ),
                     ),
                     if (i < _steps.length - 1)
                       Container(
                         width: 2, height: 36,
-                        color: done ? AppTheme.success : AppTheme.darkBorder,
+                        color: done
+                            ? AppTheme.success
+                            : AppColors.border(context),
                       ),
                   ],
                 ),
@@ -134,8 +271,8 @@ class OrderTrackingScreen extends StatelessWidget {
                             color: active
                                 ? AppTheme.accent
                                 : done
-                                    ? AppTheme.textPrimary
-                                    : AppTheme.textHint,
+                                    ? AppColors.textPrimary(context)
+                                    : AppColors.textHint(context),
                             fontWeight: active
                                 ? FontWeight.w700
                                 : FontWeight.w400,
@@ -145,7 +282,8 @@ class OrderTrackingScreen extends StatelessWidget {
                         if (active)
                           Text('In progress...',
                               style: TextStyle(
-                                  color: AppTheme.textHint, fontSize: 12)),
+                                  color: AppColors.textHint(context),
+                                  fontSize: 12)),
                       ],
                     ),
                   ),
@@ -154,14 +292,18 @@ class OrderTrackingScreen extends StatelessWidget {
             );
           }),
 
-          // ── Order summary ─────────────────────────────────────
-          const Divider(color: AppTheme.darkBorder),
+          // ── Order summary ─────────────────────────────────
+          Divider(color: AppColors.border(context)),
           const SizedBox(height: 16),
-          const Text('Order summary', style: AppText.heading),
+          Text('Order summary',
+              style: TextStyle(
+                  color: AppColors.textPrimary(context),
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700)),
           const SizedBox(height: 12),
-          _infoRow('Order ID', '#${order.id}'),
-          _infoRow('Total', order.displayTotal),
-          _infoRow('Status', order.status),
+          _infoRow('Order ID', '#${_order.id}'),
+          _infoRow('Total', _order.displayTotal),
+          _infoRow('Status', _order.status.replaceAll('_', ' ')),
           const SizedBox(height: 32),
         ],
       ),
@@ -174,9 +316,11 @@ class OrderTrackingScreen extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label, style: AppText.body),
+          Text(label, style: TextStyle(color: AppColors.textSecondary(context))),
           Text(value,
-              style: AppText.label.copyWith(color: AppTheme.textPrimary)),
+              style: TextStyle(
+                  color: AppColors.textPrimary(context),
+                  fontWeight: FontWeight.w600)),
         ],
       ),
     );

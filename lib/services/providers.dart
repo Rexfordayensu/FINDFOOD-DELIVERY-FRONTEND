@@ -1,5 +1,7 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import '../models/models.dart';
+import 'api_service.dart'; // Moved all imports to the top
 
 // ─── THEME PROVIDER ───────────────────────────────────────────────────────────
 class ThemeProvider extends ChangeNotifier {
@@ -52,8 +54,8 @@ class CartProvider extends ChangeNotifier {
   int?    _restaurantId;
   String? _restaurantName;
 
-  List<CartItem> get items          => _items;
-  int?           get restaurantId   => _restaurantId;
+  List<CartItem> get items           => _items;
+  int?           get restaurantId    => _restaurantId;
   String?        get restaurantName => _restaurantName;
   bool           get isEmpty        => _items.isEmpty;
   int            get itemCount      => _items.fold(0, (s, i) => s + i.quantity);
@@ -79,6 +81,7 @@ class CartProvider extends ChangeNotifier {
   }
 
   void decreaseItem(int menuItemId) {
+    // collection's firstOrNull requires Dart 3.0+ or collection package
     final item = _items.where((i) => i.menuItem.id == menuItemId).firstOrNull;
     if (item == null) return;
     if (item.quantity > 1) { item.quantity--; } else { _items.remove(item); }
@@ -99,4 +102,61 @@ class CartProvider extends ChangeNotifier {
 
   // backward compat
   void setLoggedIn(bool value, {String? token, int? userId, String? role}) {}
+}
+
+// ─── ORDER POLLING PROVIDER ───────────────────────────────────────────────────
+// Polls the backend every few seconds so restaurant/rider dashboards and the
+// customer tracking screen update automatically without manual refresh.
+class OrderPollingProvider extends ChangeNotifier {
+  List<Order> _orders = [];
+  Timer? _timer;
+  bool _polling = false;
+
+  List<Order> get orders => _orders;
+  bool get isPolling => _polling;
+
+  /// Start polling /orders (for restaurant) every [interval]
+  void startPollingMyOrders(String token, {Duration interval = const Duration(seconds: 5)}) {
+    _polling = true;
+    _poll(token);
+    _timer?.cancel();
+    _timer = Timer.periodic(interval, (_) => _poll(token));
+  }
+
+  /// Start polling /deliveries/available (for rider)
+  void startPollingAvailable(String token, {Duration interval = const Duration(seconds: 5)}) {
+    _polling = true;
+    _pollAvailable(token);
+    _timer?.cancel();
+    _timer = Timer.periodic(interval, (_) => _pollAvailable(token));
+  }
+
+  Future<void> _poll(String token) async {
+    try {
+      final list = await ApiService.getMyOrders(token);
+      _orders = list;
+      notifyListeners();
+    } catch (_) {
+      // Silent fail — keep last known good state, retry next tick
+    }
+  }
+
+  Future<void> _pollAvailable(String token) async {
+    try {
+      final list = await ApiService.getAvailableDeliveries(token);
+      _orders = list;
+      notifyListeners();
+    } catch (_) {}
+  }
+
+  void stopPolling() {
+    _timer?.cancel();
+    _polling = false;
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
 }

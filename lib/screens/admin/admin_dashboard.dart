@@ -1,9 +1,10 @@
+import '../customer/food_feed_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../theme.dart';
-import '../../services/api_service.dart';
+import '../../widgets/widgets.dart';
 import '../../services/providers.dart';
-import '../../models/models.dart';
+import '../../services/api_service.dart';
 import '../auth/login_screen.dart';
 
 class AdminDashboard extends StatefulWidget {
@@ -14,8 +15,6 @@ class AdminDashboard extends StatefulWidget {
 
 class _AdminDashboardState extends State<AdminDashboard> {
   int _selectedIndex = 0;
-  int _pendingCount = 0;
-  bool _loadingCount = true;
 
   final _navItems = [
     {'icon': Icons.grid_view_rounded,           'label': 'Overview'},
@@ -25,39 +24,14 @@ class _AdminDashboardState extends State<AdminDashboard> {
     {'icon': Icons.settings_outlined,            'label': 'Settings'},
   ];
 
-  @override
-  void initState() {
-    super.initState();
-    _loadPendingCount();
-  }
-
-  Future<void> _loadPendingCount() async {
-    try {
-      final auth = Provider.of<AuthProvider>(context, listen: false);
-      final restaurants = await ApiService.getPendingRestaurants(token: auth.token);
-      if (mounted) {
-        setState(() {
-          _pendingCount = restaurants.length;
-          _loadingCount = false;
-        });
-      }
-    } catch (e) {
-      if (mounted) setState(() => _loadingCount = false);
-    }
-  }
-
-  void _updatePendingCount() {
-    _loadPendingCount();
-  }
-
   Widget _buildPage() {
     switch (_selectedIndex) {
-      case 0: return _OverviewPage(pendingCount: _pendingCount);
-      case 1: return _ApprovalsPage(onApprovalChanged: _updatePendingCount);
+      case 0: return _OverviewPage(onNavigate: (i) => setState(() => _selectedIndex = i));
+      case 1: return const _ApprovalsPage();
       case 2: return const _RiderDeskPage();
       case 3: return const _UsersPage();
       case 4: return const _AdminSettingsPage();
-      default: return _OverviewPage(pendingCount: _pendingCount);
+      default: return _OverviewPage(onNavigate: (i) => setState(() => _selectedIndex = i));
     }
   }
 
@@ -73,7 +47,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
     final auth       = Provider.of<AuthProvider>(context);
 
     Widget sidebar = Container(
-      width: 220,
+      width: isWide ? 220 : double.infinity,
       decoration: BoxDecoration(
         color: surf,
         border: Border(right: BorderSide(color: border, width: 1)),
@@ -174,8 +148,8 @@ class _AdminDashboardState extends State<AdminDashboard> {
                                 color: AppTheme.danger.withOpacity(0.15),
                                 borderRadius: BorderRadius.circular(10),
                               ),
-                              child: Text(_pendingCount.toString(),
-                                  style: const TextStyle(
+                              child: const Text('2',
+                                  style: TextStyle(
                                       color: AppTheme.danger,
                                       fontSize: 10,
                                       fontWeight: FontWeight.w800)),
@@ -233,10 +207,11 @@ class _AdminDashboardState extends State<AdminDashboard> {
                 GestureDetector(
                   onTap: () {
                     auth.logout();
+                    // Go to feed — splash only plays on cold start
                     Navigator.pushAndRemoveUntil(
                       context,
                       MaterialPageRoute(
-                          builder: (_) => const LoginScreen()),
+                          builder: (_) => const FoodFeedScreen()),
                       (_) => false,
                     );
                   },
@@ -307,126 +282,187 @@ class _AdminDashboardState extends State<AdminDashboard> {
 }
 
 // ─── OVERVIEW ─────────────────────────────────────────────────────────────────
-class _OverviewPage extends StatelessWidget {
-  final int pendingCount;
-  
-  const _OverviewPage({this.pendingCount = 0});
+class _OverviewPage extends StatefulWidget {
+  final ValueChanged<int> onNavigate;
+  const _OverviewPage({required this.onNavigate});
+
+  @override
+  State<_OverviewPage> createState() => _OverviewPageState();
+}
+
+class _OverviewPageState extends State<_OverviewPage> {
+  Map<String, dynamic>? _stats;
+  bool _loading = true;
+  String _error = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    final auth = Provider.of<AuthProvider>(context, listen: false);
+    if (auth.token == null) return;
+    setState(() { _loading = true; _error = ''; });
+    try {
+      final stats = await ApiService.getPlatformStats(auth.token!);
+      setState(() => _stats = stats);
+    } catch (e) {
+      setState(() => _error = e.toString().replaceAll('Exception: ', ''));
+    } finally {
+      setState(() => _loading = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final textPri = AppColors.textPrimary(context);
     final textSec = AppColors.textSecondary(context);
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(28),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Page title
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('Overview',
-                      style: TextStyle(
-                          color: textPri,
-                          fontSize: 26,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: -0.5)),
-                  const SizedBox(height: 2),
-                  Text('Sunday, June 21 · Live data',
-                      style: TextStyle(color: textSec, fontSize: 13)),
-                ],
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 14, vertical: 8),
-                decoration: BoxDecoration(
-                  color: AppTheme.success.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(
-                      color: AppTheme.success.withOpacity(0.3)),
-                ),
-                child: Row(
+    return RefreshIndicator(
+      color: AppTheme.accent,
+      onRefresh: _load,
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.all(28),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Page title
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Container(
-                      width: 7, height: 7,
-                      decoration: const BoxDecoration(
-                          color: AppTheme.success,
-                          shape: BoxShape.circle),
-                    ),
-                    const SizedBox(width: 6),
-                    const Text('All systems online',
+                    Text('Overview',
                         style: TextStyle(
-                            color: AppTheme.success,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600)),
+                            color: textPri,
+                            fontSize: 26,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: -0.5)),
+                    const SizedBox(height: 2),
+                    Text('Live platform data',
+                        style: TextStyle(color: textSec, fontSize: 13)),
                   ],
                 ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 28),
-
-          // Stat cards
-          LayoutBuilder(builder: (ctx, constraints) {
-            final w = (constraints.maxWidth - 42) / 4;
-            return Row(
-              children: [
-                _statCard(context, 'Total Orders', '1,284',
-                    '+12% today', Icons.receipt_long_rounded,
-                    AppTheme.accent, w),
-                const SizedBox(width: 14),
-                _statCard(context, 'Active Riders', '34',
-                    '6 on delivery', Icons.electric_bike_rounded,
-                    AppTheme.success, w),
-                const SizedBox(width: 14),
-                _statCard(context, 'Restaurants', '58',
-                    '${pendingCount} pending', Icons.storefront_rounded,
-                    AppTheme.warning, w),
-                const SizedBox(width: 14),
-                _statCard(context, 'Revenue Today', 'GH₵ 12,440',
-                    '+18% vs yesterday', Icons.payments_rounded,
-                    const Color(0xFF8B5CF6), w),
+                GestureDetector(
+                  onTap: _load,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 14, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: AppTheme.success.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(
+                          color: AppTheme.success.withOpacity(0.3)),
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 7, height: 7,
+                          decoration: const BoxDecoration(
+                              color: AppTheme.success,
+                              shape: BoxShape.circle),
+                        ),
+                        const SizedBox(width: 6),
+                        const Text('Live · tap to refresh',
+                            style: TextStyle(
+                                color: AppTheme.success,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600)),
+                      ],
+                    ),
+                  ),
+                ),
               ],
-            );
-          }),
-          const SizedBox(height: 28),
+            ),
+            const SizedBox(height: 28),
 
-          // Recent activity
-          Text('Recent activity',
-              style: TextStyle(
-                  color: textPri,
-                  fontSize: 17,
-                  fontWeight: FontWeight.w700)),
-          const SizedBox(height: 14),
-          ...[
-            ('Order #2841 placed', 'customer@test.com', '2 min ago',
-                Icons.receipt_outlined, AppTheme.accent),
-            ('New rider registered', 'rider@test.com', '15 min ago',
-                Icons.electric_bike_outlined, AppTheme.success),
-            ('Restaurant applied', 'Kofi\'s Kitchen', '1 hr ago',
-                Icons.storefront_outlined, AppTheme.warning),
-            ('Payment received', 'GH₵ 83.00', '2 hr ago',
-                Icons.payments_outlined, AppTheme.success),
-          ].map((r) => _activityRow(
-              context, r.$1, r.$2, r.$3, r.$4, r.$5)),
-        ],
+            if (_loading)
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 60),
+                child: Center(
+                    child: CircularProgressIndicator(color: AppTheme.accent)),
+              )
+            else if (_error.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 40),
+                child: Column(
+                  children: [
+                    Icon(Icons.wifi_off_rounded,
+                        size: 48, color: AppColors.textHint(context)),
+                    const SizedBox(height: 12),
+                    Text(_error,
+                        style: TextStyle(color: textSec),
+                        textAlign: TextAlign.center),
+                    const SizedBox(height: 16),
+                    ElevatedButton(onPressed: _load, child: const Text('Retry')),
+                  ],
+                ),
+              )
+            else
+              LayoutBuilder(builder: (ctx, constraints) {
+                final isWide = constraints.maxWidth > 600;
+                final cardW  = isWide
+                    ? (constraints.maxWidth - 42) / 4
+                    : (constraints.maxWidth - 14) / 2;
+                final s = _stats ?? {};
+                return Wrap(
+                  spacing: 14,
+                  runSpacing: 14,
+                  children: [
+                    _statCard(context, 'Total Orders',
+                        '${s['total_orders'] ?? 0}',
+                        'All time · tap to view', Icons.receipt_long_rounded,
+                        AppTheme.accent, cardW,
+                        onTap: () => Navigator.push(context,
+                            MaterialPageRoute(
+                                builder: (_) => const _AdminOrdersScreen()))),
+                    _statCard(context, 'Active Riders',
+                        '${s['active_riders'] ?? 0}',
+                        'Tap to view all', Icons.electric_bike_rounded,
+                        AppTheme.success, cardW,
+                        onTap: () => widget.onNavigate(2)), // Riders tab
+                    _statCard(context, 'Restaurants',
+                        '${s['total_restaurants'] ?? 0}',
+                        '${s['pending_approvals'] ?? 0} pending · tap to review',
+                        Icons.storefront_rounded,
+                        AppTheme.warning, cardW,
+                        onTap: () => widget.onNavigate(1)), // Approvals tab
+                    _statCard(context, 'Revenue',
+                        'GH₵ ${((s['revenue_today'] ?? 0) / 100).toStringAsFixed(2)}',
+                        'Delivered orders · tap to view', Icons.payments_rounded,
+                        const Color(0xFF8B5CF6), cardW,
+                        onTap: () => Navigator.push(context,
+                            MaterialPageRoute(
+                                builder: (_) => const _AdminRevenueScreen()))),
+                  ],
+                );
+              }),
+          ],
+        ),
       ),
     );
   }
 
   Widget _statCard(BuildContext ctx, String label, String value,
-      String sub, IconData icon, Color color, double width) {
-    return Container(
+      String sub, IconData icon, Color color, double width,
+      {VoidCallback? onTap}) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
       width: width,
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
         color: AppColors.card(ctx),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.border(ctx)),
+        border: Border.all(
+          color: onTap != null
+              ? color.withOpacity(0.3)
+              : AppColors.border(ctx),
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -442,8 +478,13 @@ class _OverviewPage extends StatelessWidget {
                 ),
                 child: Icon(icon, color: color, size: 18),
               ),
-              Icon(Icons.trending_up_rounded,
-                  color: AppTheme.success, size: 16),
+              Icon(
+                onTap != null
+                    ? Icons.arrow_forward_ios_rounded
+                    : Icons.trending_up_rounded,
+                color: onTap != null ? color : AppTheme.success,
+                size: onTap != null ? 14 : 16,
+              ),
             ],
           ),
           const SizedBox(height: 14),
@@ -467,50 +508,6 @@ class _OverviewPage extends StatelessWidget {
                   fontWeight: FontWeight.w500)),
         ],
       ),
-    );
-  }
-
-  Widget _activityRow(BuildContext ctx, String title, String sub,
-      String time, IconData icon, Color color) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: AppColors.card(ctx),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.border(ctx)),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 36, height: 36,
-            decoration: BoxDecoration(
-              color: color.withOpacity(0.12),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(icon, color: color, size: 17),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(title,
-                    style: TextStyle(
-                        color: AppColors.textPrimary(ctx),
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600)),
-                Text(sub,
-                    style: TextStyle(
-                        color: AppColors.textSecondary(ctx),
-                        fontSize: 12)),
-              ],
-            ),
-          ),
-          Text(time,
-              style: TextStyle(
-                  color: AppColors.textHint(ctx), fontSize: 11)),
-        ],
       ),
     );
   }
@@ -518,20 +515,17 @@ class _OverviewPage extends StatelessWidget {
 
 // ─── APPROVALS ────────────────────────────────────────────────────────────────
 class _ApprovalsPage extends StatefulWidget {
-  final VoidCallback? onApprovalChanged;
-  
-  const _ApprovalsPage({this.onApprovalChanged});
+  const _ApprovalsPage();
 
   @override
   State<_ApprovalsPage> createState() => _ApprovalsPageState();
 }
 
 class _ApprovalsPageState extends State<_ApprovalsPage> {
-  List<Restaurant> _pending = [];
-  bool _loading = true;
-  String _error = '';
-  Set<int> _approvingIds = {};
-  Set<int> _rejectingIds = {};
+  List<Map<String, dynamic>> _pending = [];
+  bool   _loading = true;
+  String _error   = '';
+  final Set<int> _processingIds = {};
 
   @override
   void initState() {
@@ -540,105 +534,91 @@ class _ApprovalsPageState extends State<_ApprovalsPage> {
   }
 
   Future<void> _load() async {
-    setState(() {
-      _loading = true;
-      _error = '';
-    });
-
+    final auth = Provider.of<AuthProvider>(context, listen: false);
+    if (auth.token == null) return;
+    setState(() { _loading = true; _error = ''; });
     try {
-      final auth = Provider.of<AuthProvider>(context, listen: false);
-      final restaurants = await ApiService.getPendingRestaurants(token: auth.token);
-      if (!mounted) return;
-      setState(() => _pending = restaurants);
+      final list = await ApiService.getPendingRestaurants(auth.token!);
+      setState(() => _pending = list);
     } catch (e) {
-      if (!mounted) return;
       setState(() => _error = e.toString().replaceAll('Exception: ', ''));
     } finally {
-      if (mounted) setState(() => _loading = false);
+      setState(() => _loading = false);
     }
   }
 
-  Future<void> _approve(Restaurant restaurant) async {
-    setState(() => _approvingIds.add(restaurant.id));
+  Future<void> _approve(int id, String name) async {
+    final auth = Provider.of<AuthProvider>(context, listen: false);
+    setState(() => _processingIds.add(id));
     try {
-      final auth = Provider.of<AuthProvider>(context, listen: false);
-      await ApiService.approveRestaurant(
-        restaurantId: restaurant.id,
-        token: auth.token ?? '',
-      );
+      await ApiService.approveRestaurant(auth.token!, id);
+      setState(() => _pending.removeWhere((r) => r['id'] == id));
       if (!mounted) return;
-      setState(() => _pending.removeWhere((r) => r.id == restaurant.id));
-      widget.onApprovalChanged?.call();
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('${restaurant.name} approved!'),
-          backgroundColor: AppTheme.success,
-        ),
-      );
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        backgroundColor: AppTheme.success,
+        behavior: SnackBarBehavior.floating,
+        content: Text('$name approved! They can now go live.',
+            style: const TextStyle(color: Colors.white)),
+      ));
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(e.toString().replaceAll('Exception: ', '')),
-          backgroundColor: AppTheme.danger,
-        ),
-      );
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        backgroundColor: AppTheme.danger,
+        content: Text(e.toString().replaceAll('Exception: ', ''),
+            style: const TextStyle(color: Colors.white)),
+      ));
     } finally {
-      if (mounted) setState(() => _approvingIds.remove(restaurant.id));
+      if (mounted) setState(() => _processingIds.remove(id));
     }
   }
 
-  Future<void> _reject(Restaurant restaurant) async {
-    // Show confirmation dialog
-    showDialog(
+  Future<void> _reject(int id, String name) async {
+    final auth = Provider.of<AuthProvider>(context, listen: false);
+    final confirmed = await showDialog<bool>(
       context: context,
-      builder: (_) => AlertDialog(
-        title: const Text('Reject Application?'),
-        content: Text('Are you sure you want to reject ${restaurant.name}?'),
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppColors.card(ctx),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Text('Reject $name?',
+            style: TextStyle(color: AppColors.textPrimary(ctx))),
+        content: Text(
+          'This will permanently remove their application. They will need to reapply.',
+          style: TextStyle(color: AppColors.textSecondary(ctx)),
+        ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.pop(ctx, false),
             child: const Text('Cancel'),
           ),
           TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-              _rejectRestaurant(restaurant);
-            },
-            child: const Text('Reject'),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Reject',
+                style: TextStyle(color: AppTheme.danger, fontWeight: FontWeight.w700)),
           ),
         ],
       ),
     );
-  }
+    if (confirmed != true) return;
 
-  Future<void> _rejectRestaurant(Restaurant restaurant) async {
-    setState(() => _rejectingIds.add(restaurant.id));
+    setState(() => _processingIds.add(id));
     try {
-      final auth = Provider.of<AuthProvider>(context, listen: false);
-      await ApiService.rejectRestaurant(
-        restaurantId: restaurant.id,
-        token: auth.token ?? '',
-      );
+      await ApiService.rejectRestaurant(auth.token!, id);
+      setState(() => _pending.removeWhere((r) => r['id'] == id));
       if (!mounted) return;
-      setState(() => _pending.removeWhere((r) => r.id == restaurant.id));
-      widget.onApprovalChanged?.call();
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('${restaurant.name} rejected.'),
-          backgroundColor: AppTheme.danger,
-        ),
-      );
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        backgroundColor: AppTheme.danger,
+        content: Text('$name application rejected.',
+            style: const TextStyle(color: Colors.white)),
+      ));
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(e.toString().replaceAll('Exception: ', '')),
-          backgroundColor: AppTheme.danger,
-        ),
-      );
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        backgroundColor: AppTheme.danger,
+        content: Text(e.toString().replaceAll('Exception: ', ''),
+            style: const TextStyle(color: Colors.white)),
+      ));
     } finally {
-      if (mounted) setState(() => _rejectingIds.remove(restaurant.id));
+      if (mounted) setState(() => _processingIds.remove(id));
     }
   }
 
@@ -647,65 +627,139 @@ class _ApprovalsPageState extends State<_ApprovalsPage> {
     final textPri = AppColors.textPrimary(context);
     final textSec = AppColors.textSecondary(context);
 
-    if (_loading) {
-      return const Center(child: CircularProgressIndicator(color: AppTheme.accent));
-    }
+    return RefreshIndicator(
+      color: AppTheme.accent,
+      onRefresh: _load,
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.all(28),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Restaurant Approvals',
+                        style: TextStyle(
+                            color: textPri, fontSize: 26,
+                            fontWeight: FontWeight.w800, letterSpacing: -0.5)),
+                    const SizedBox(height: 4),
+                    Text('Review and approve new restaurant registrations',
+                        style: TextStyle(color: textSec, fontSize: 13)),
+                  ],
+                ),
+                if (_pending.isNotEmpty)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: AppTheme.warning.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: AppTheme.warning.withOpacity(0.3)),
+                    ),
+                    child: Text('${_pending.length} pending',
+                        style: const TextStyle(
+                            color: AppTheme.warning,
+                            fontSize: 12, fontWeight: FontWeight.w700)),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 24),
 
-    if (_error.isNotEmpty) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Text(_error, style: TextStyle(color: AppColors.textSecondary(context))),
+            if (_loading)
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 60),
+                child: Center(
+                    child: CircularProgressIndicator(color: AppTheme.accent)),
+              )
+            else if (_error.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 40),
+                child: Column(
+                  children: [
+                    Icon(Icons.wifi_off_rounded, size: 48, color: AppColors.textHint(context)),
+                    const SizedBox(height: 12),
+                    Text(_error, style: TextStyle(color: textSec), textAlign: TextAlign.center),
+                    const SizedBox(height: 16),
+                    ElevatedButton(onPressed: _load, child: const Text('Retry')),
+                  ],
+                ),
+              )
+            else if (_pending.isEmpty)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 60),
+                child: Column(
+                  children: [
+                    Icon(Icons.check_circle_outline_rounded,
+                        size: 56, color: AppTheme.success.withOpacity(0.5)),
+                    const SizedBox(height: 16),
+                    Text('All caught up!',
+                        style: TextStyle(color: textPri, fontSize: 18, fontWeight: FontWeight.w700)),
+                    const SizedBox(height: 6),
+                    Text('No pending restaurant applications.',
+                        style: TextStyle(color: textSec)),
+                  ],
+                ),
+              )
+            else
+              ..._pending.map((r) => _approvalCard(
+                    context,
+                    id: r['id'],
+                    name: r['name'] ?? '',
+                    cuisine: r['cuisine_type'] ?? '',
+                    addr: r['address'] ?? '',
+                    email: r['email'] ?? '',
+                    processing: _processingIds.contains(r['id']),
+                  )),
+          ],
         ),
-      );
-    }
+      ),
+    );
+  }
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(28),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text('Restaurant Approvals',
-              style: TextStyle(
-                  color: textPri, fontSize: 26,
-                  fontWeight: FontWeight.w800, letterSpacing: -0.5)),
-          const SizedBox(height: 4),
-          Text('Review and approve new restaurant registrations',
-              style: TextStyle(color: textSec, fontSize: 13)),
-          const SizedBox(height: 24),
-          if (_pending.isEmpty)
-            Container(
-              padding: const EdgeInsets.all(24),
-              decoration: BoxDecoration(
-                color: AppColors.card(context),
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: AppColors.border(context)),
+  Widget _actionBtn(String label, Color color, IconData icon,
+      {required VoidCallback onTap, bool loading = false}) {
+    return GestureDetector(
+      onTap: loading ? null : onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 10),
+        decoration: BoxDecoration(
+          color: color.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: color.withOpacity(0.3)),
+        ),
+        child: loading
+            ? Center(
+                child: SizedBox(
+                  width: 16, height: 16,
+                  child: CircularProgressIndicator(
+                      color: color, strokeWidth: 2),
+                ),
+              )
+            : Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(icon, color: color, size: 16),
+                  const SizedBox(width: 6),
+                  Text(label, style: TextStyle(
+                      color: color, fontWeight: FontWeight.w700, fontSize: 13)),
+                ],
               ),
-              child: Text('No pending restaurants to review.',
-                  style: TextStyle(color: AppColors.textSecondary(context))),
-            )
-          else
-            ..._pending.map((restaurant) => _approvalCard(
-                context,
-                restaurant,
-                () => _approve(restaurant),
-                () => _reject(restaurant),
-                _approvingIds.contains(restaurant.id),
-                _rejectingIds.contains(restaurant.id),
-              )),
-        ],
       ),
     );
   }
 
   Widget _approvalCard(
-    BuildContext ctx,
-    Restaurant restaurant,
-    VoidCallback onApprove,
-    VoidCallback onReject,
-    bool isApproving,
-    bool isRejecting,
-  ) {
+    BuildContext ctx, {
+    required int id,
+    required String name,
+    required String cuisine,
+    required String addr,
+    required String email,
+    required bool processing,
+  }) {
     return Container(
       margin: const EdgeInsets.only(bottom: 14),
       padding: const EdgeInsets.all(18),
@@ -724,8 +778,7 @@ class _ApprovalsPageState extends State<_ApprovalsPage> {
                 decoration: BoxDecoration(
                   color: AppTheme.warning.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                      color: AppTheme.warning.withOpacity(0.2)),
+                  border: Border.all(color: AppTheme.warning.withOpacity(0.2)),
                 ),
                 child: const Icon(Icons.storefront_rounded,
                     color: AppTheme.warning, size: 22),
@@ -735,32 +788,27 @@ class _ApprovalsPageState extends State<_ApprovalsPage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(restaurant.name,
+                    Text(name,
                         style: TextStyle(
                             color: AppColors.textPrimary(ctx),
-                            fontSize: 15,
-                            fontWeight: FontWeight.w700)),
-                    Text('${restaurant.cuisineType} · ${restaurant.address}',
+                            fontSize: 15, fontWeight: FontWeight.w700)),
+                    Text('$cuisine · $addr',
                         style: TextStyle(
-                            color: AppColors.textSecondary(ctx),
-                            fontSize: 12)),
+                            color: AppColors.textSecondary(ctx), fontSize: 12)),
                   ],
                 ),
               ),
               Container(
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 10, vertical: 4),
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
                   color: AppTheme.warning.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(20),
-                  border: Border.all(
-                      color: AppTheme.warning.withOpacity(0.3)),
+                  border: Border.all(color: AppTheme.warning.withOpacity(0.3)),
                 ),
-                child: Text('Pending',
+                child: const Text('Pending',
                     style: TextStyle(
                         color: AppTheme.warning,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600)),
+                        fontSize: 11, fontWeight: FontWeight.w600)),
               ),
             ],
           ),
@@ -769,22 +817,12 @@ class _ApprovalsPageState extends State<_ApprovalsPage> {
             padding: const EdgeInsets.only(left: 60),
             child: Row(
               children: [
-                Icon(Icons.email_outlined,
-                    size: 13, color: AppColors.textHint(ctx)),
-                const SizedBox(width: 4),
-                Text(restaurant.email,
-                    style: TextStyle(
-                        color: AppColors.textHint(ctx), fontSize: 12)),
-                const Spacer(),
-                Icon(Icons.location_on_outlined,
-                    size: 13, color: AppColors.textHint(ctx)),
+                Icon(Icons.email_outlined, size: 13, color: AppColors.textHint(ctx)),
                 const SizedBox(width: 4),
                 Expanded(
-                  child: Text(restaurant.address,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                          color: AppColors.textHint(ctx), fontSize: 12)),
+                  child: Text(email,
+                      style: TextStyle(color: AppColors.textHint(ctx), fontSize: 12),
+                      overflow: TextOverflow.ellipsis),
                 ),
               ],
             ),
@@ -793,79 +831,13 @@ class _ApprovalsPageState extends State<_ApprovalsPage> {
           Row(
             children: [
               Expanded(
-                child: GestureDetector(
-                  onTap: isApproving ? null : onApprove,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(vertical: 10),
-                    decoration: BoxDecoration(
-                      color: AppTheme.success.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(
-                          color: AppTheme.success.withOpacity(0.3)),
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        if (isApproving)
-                          const SizedBox(
-                            width: 14,
-                            height: 14,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              valueColor: AlwaysStoppedAnimation(AppTheme.success),
-                            ),
-                          )
-                        else
-                          const Icon(Icons.check_rounded,
-                              color: AppTheme.success, size: 16),
-                        const SizedBox(width: 6),
-                        Text(isApproving ? 'Approving...' : 'Approve',
-                            style: const TextStyle(
-                                color: AppTheme.success,
-                                fontWeight: FontWeight.w700,
-                                fontSize: 13)),
-                      ],
-                    ),
-                  ),
-                ),
+                child: _actionBtn('Approve', AppTheme.success, Icons.check_rounded,
+                    onTap: () => _approve(id, name), loading: processing),
               ),
               const SizedBox(width: 10),
               Expanded(
-                child: GestureDetector(
-                  onTap: isRejecting ? null : onReject,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(vertical: 10),
-                    decoration: BoxDecoration(
-                      color: AppTheme.danger.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(
-                          color: AppTheme.danger.withOpacity(0.3)),
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        if (isRejecting)
-                          const SizedBox(
-                            width: 14,
-                            height: 14,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              valueColor: AlwaysStoppedAnimation(AppTheme.danger),
-                            ),
-                          )
-                        else
-                          const Icon(Icons.close_rounded,
-                              color: AppTheme.danger, size: 16),
-                        const SizedBox(width: 6),
-                        Text(isRejecting ? 'Rejecting...' : 'Reject',
-                            style: const TextStyle(
-                                color: AppTheme.danger,
-                                fontWeight: FontWeight.w700,
-                                fontSize: 13)),
-                      ],
-                    ),
-                  ),
-                ),
+                child: _actionBtn('Reject', AppTheme.danger, Icons.close_rounded,
+                    onTap: () => _reject(id, name), loading: processing),
               ),
             ],
           ),
@@ -876,42 +848,103 @@ class _ApprovalsPageState extends State<_ApprovalsPage> {
 }
 
 // ─── RIDERS ───────────────────────────────────────────────────────────────────
-class _RiderDeskPage extends StatelessWidget {
+class _RiderDeskPage extends StatefulWidget {
   const _RiderDeskPage();
+
+  @override
+  State<_RiderDeskPage> createState() => _RiderDeskPageState();
+}
+
+class _RiderDeskPageState extends State<_RiderDeskPage> {
+  List<Map<String, dynamic>> _riders = [];
+  bool _loading = true;
+  String _error = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    final auth = Provider.of<AuthProvider>(context, listen: false);
+    if (auth.token == null) return;
+    setState(() { _loading = true; _error = ''; });
+    try {
+      final users = await ApiService.getAllUsers(auth.token!);
+      setState(() => _riders = users.where((u) => u['role'] == 'rider').toList());
+    } catch (e) {
+      setState(() => _error = e.toString().replaceAll('Exception: ', ''));
+    } finally {
+      setState(() => _loading = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final textPri = AppColors.textPrimary(context);
     final textSec = AppColors.textSecondary(context);
-    final riders = [
-      ('Kwame Asante', 'On delivery · #2841', AppTheme.accent, '7 today'),
-      ('Ama Owusu',    'Available',            AppTheme.success, '5 today'),
-      ('Kojo Mensah',  'Offline',              AppColors.textHint(context), '0 today'),
-      ('Abena Sarpong','Available',            AppTheme.success, '9 today'),
-    ];
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(28),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text('Rider Fleet',
-              style: TextStyle(
-                  color: textPri, fontSize: 26,
-                  fontWeight: FontWeight.w800, letterSpacing: -0.5)),
-          const SizedBox(height: 4),
-          Text('${riders.length} registered riders',
-              style: TextStyle(color: textSec, fontSize: 13)),
-          const SizedBox(height: 24),
-          ...riders.map((r) => _riderCard(
-              context, r.$1, r.$2, r.$3, r.$4)),
-        ],
+    return RefreshIndicator(
+      color: AppTheme.accent,
+      onRefresh: _load,
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.all(28),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Rider Fleet',
+                style: TextStyle(
+                    color: textPri, fontSize: 26,
+                    fontWeight: FontWeight.w800, letterSpacing: -0.5)),
+            const SizedBox(height: 4),
+            Text('${_riders.length} registered riders',
+                style: TextStyle(color: textSec, fontSize: 13)),
+            const SizedBox(height: 24),
+            if (_loading)
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 60),
+                child: Center(child: CircularProgressIndicator(color: AppTheme.accent)),
+              )
+            else if (_error.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 40),
+                child: Column(
+                  children: [
+                    Icon(Icons.wifi_off_rounded, size: 48, color: AppColors.textHint(context)),
+                    const SizedBox(height: 12),
+                    Text(_error, style: TextStyle(color: textSec), textAlign: TextAlign.center),
+                    const SizedBox(height: 16),
+                    ElevatedButton(onPressed: _load, child: const Text('Retry')),
+                  ],
+                ),
+              )
+            else if (_riders.isEmpty)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 60),
+                child: Column(
+                  children: [
+                    Icon(Icons.electric_bike_outlined,
+                        size: 56, color: AppColors.textHint(context)),
+                    const SizedBox(height: 16),
+                    Text('No riders yet',
+                        style: TextStyle(color: textPri, fontSize: 18, fontWeight: FontWeight.w700)),
+                    const SizedBox(height: 6),
+                    Text('Riders will appear here once they register.',
+                        style: TextStyle(color: textSec)),
+                  ],
+                ),
+              )
+            else
+              ..._riders.map((r) => _riderCard(context, r['name'] ?? '', r['email'] ?? '')),
+          ],
+        ),
       ),
     );
   }
 
-  Widget _riderCard(BuildContext ctx, String name, String status,
-      Color color, String deliveries) {
+  Widget _riderCard(BuildContext ctx, String name, String email) {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),
@@ -924,10 +957,10 @@ class _RiderDeskPage extends StatelessWidget {
         children: [
           CircleAvatar(
             radius: 22,
-            backgroundColor: color.withOpacity(0.12),
-            child: Text(name[0],
-                style: TextStyle(
-                    color: color,
+            backgroundColor: AppTheme.accent.withOpacity(0.12),
+            child: Text(name.isNotEmpty ? name[0].toUpperCase() : '?',
+                style: const TextStyle(
+                    color: AppTheme.accent,
                     fontWeight: FontWeight.w800,
                     fontSize: 16)),
           ),
@@ -942,43 +975,20 @@ class _RiderDeskPage extends StatelessWidget {
                         fontWeight: FontWeight.w600,
                         fontSize: 14)),
                 const SizedBox(height: 2),
-                Row(
-                  children: [
-                    Container(
-                      width: 6, height: 6,
-                      decoration: BoxDecoration(
-                          color: color, shape: BoxShape.circle),
-                    ),
-                    const SizedBox(width: 5),
-                    Text(status,
-                        style: TextStyle(color: color, fontSize: 12,
-                            fontWeight: FontWeight.w500)),
-                  ],
-                ),
+                Text(email,
+                    style: TextStyle(color: AppColors.textSecondary(ctx), fontSize: 12)),
               ],
             ),
           ),
           Container(
-            padding: const EdgeInsets.symmetric(
-                horizontal: 12, vertical: 6),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
             decoration: BoxDecoration(
-              color: AppColors.surface(ctx),
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: AppColors.border(ctx)),
+              color: AppTheme.success.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(20),
             ),
-            child: Column(
-              children: [
-                Text(deliveries,
-                    style: TextStyle(
-                        color: AppColors.textPrimary(ctx),
-                        fontSize: 13,
-                        fontWeight: FontWeight.w700)),
-                Text('deliveries',
-                    style: TextStyle(
-                        color: AppColors.textHint(ctx),
-                        fontSize: 10)),
-              ],
-            ),
+            child: const Text('Registered',
+                style: TextStyle(
+                    color: AppTheme.success, fontSize: 11, fontWeight: FontWeight.w600)),
           ),
         ],
       ),
@@ -995,9 +1005,10 @@ class _UsersPage extends StatefulWidget {
 }
 
 class _UsersPageState extends State<_UsersPage> {
-  List<AppUser> _users = [];
+  List<Map<String, dynamic>> _users = [];
   bool _loading = true;
   String _error = '';
+  String _filter = 'all';
 
   @override
   void initState() {
@@ -1006,196 +1017,179 @@ class _UsersPageState extends State<_UsersPage> {
   }
 
   Future<void> _load() async {
-    setState(() {
-      _loading = true;
-      _error = '';
-    });
-
+    final auth = Provider.of<AuthProvider>(context, listen: false);
+    if (auth.token == null) return;
+    setState(() { _loading = true; _error = ''; });
     try {
-      final auth = Provider.of<AuthProvider>(context, listen: false);
-      final users = await ApiService.getUsers(token: auth.token);
-      if (!mounted) return;
+      final users = await ApiService.getAllUsers(auth.token!);
       setState(() => _users = users);
     } catch (e) {
-      if (!mounted) return;
       setState(() => _error = e.toString().replaceAll('Exception: ', ''));
     } finally {
-      if (mounted) setState(() => _loading = false);
+      setState(() => _loading = false);
     }
   }
 
-  Color _roleColor(String role) {
-    switch (role) {
-      case 'admin':
-        return AppTheme.danger;
-      case 'restaurant':
-        return AppTheme.warning;
-      case 'rider':
-        return AppTheme.accent;
-      default:
-        return AppTheme.success;
-    }
+  List<Map<String, dynamic>> get _filtered {
+    if (_filter == 'all') return _users;
+    return _users.where((u) => u['role'] == _filter).toList();
   }
+
+  static const Map<String, Color> _roleColors = {
+    'customer':   AppTheme.success,
+    'restaurant': AppTheme.warning,
+    'rider':      AppTheme.accent,
+    'admin':      AppTheme.danger,
+  };
 
   @override
   Widget build(BuildContext context) {
     final textPri = AppColors.textPrimary(context);
     final textSec = AppColors.textSecondary(context);
 
-    if (_loading) {
-      return const Center(child: CircularProgressIndicator(color: AppTheme.accent));
-    }
+    return RefreshIndicator(
+      color: AppTheme.accent,
+      onRefresh: _load,
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.all(28),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('All Users',
+                style: TextStyle(
+                    color: textPri, fontSize: 26,
+                    fontWeight: FontWeight.w800, letterSpacing: -0.5)),
+            const SizedBox(height: 4),
+            Text('${_users.length} registered accounts',
+                style: TextStyle(color: textSec, fontSize: 13)),
+            const SizedBox(height: 20),
 
-    if (_error.isNotEmpty) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Text(_error, style: TextStyle(color: AppColors.textSecondary(context))),
-        ),
-      );
-    }
-
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(28),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+            // Filter chips
+            SizedBox(
+              height: 36,
+              child: ListView(
+                scrollDirection: Axis.horizontal,
                 children: [
-                  Text('All Users',
-                      style: TextStyle(
-                          color: textPri, fontSize: 26,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: -0.5)),
-                  Text('${_users.length} registered accounts',
-                      style: TextStyle(color: textSec, fontSize: 13)),
+                  _filterChip('All', 'all'),
+                  _filterChip('Customers', 'customer'),
+                  _filterChip('Restaurants', 'restaurant'),
+                  _filterChip('Riders', 'rider'),
+                  _filterChip('Admins', 'admin'),
                 ],
               ),
-            ],
-          ),
-          const SizedBox(height: 24),
-          Container(
-            padding: const EdgeInsets.symmetric(
-                horizontal: 16, vertical: 10),
-            decoration: BoxDecoration(
-              color: AppColors.surface(context),
-              borderRadius: const BorderRadius.vertical(
-                  top: Radius.circular(12)),
-              border: Border.all(color: AppColors.border(context)),
             ),
-            child: Row(
+            const SizedBox(height: 20),
+
+            if (_loading)
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 60),
+                child: Center(child: CircularProgressIndicator(color: AppTheme.accent)),
+              )
+            else if (_error.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 40),
+                child: Column(
+                  children: [
+                    Icon(Icons.wifi_off_rounded, size: 48, color: AppColors.textHint(context)),
+                    const SizedBox(height: 12),
+                    Text(_error, style: TextStyle(color: textSec), textAlign: TextAlign.center),
+                    const SizedBox(height: 16),
+                    ElevatedButton(onPressed: _load, child: const Text('Retry')),
+                  ],
+                ),
+              )
+            else if (_filtered.isEmpty)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 60),
+                child: Column(
+                  children: [
+                    Icon(Icons.people_outline_rounded,
+                        size: 56, color: AppColors.textHint(context)),
+                    const SizedBox(height: 16),
+                    Text('No users found',
+                        style: TextStyle(color: textPri, fontSize: 18, fontWeight: FontWeight.w700)),
+                  ],
+                ),
+              )
+            else
+              ..._filtered.map((u) => _userRow(context, u)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _filterChip(String label, String value) {
+    final active = _filter == value;
+    return Padding(
+      padding: const EdgeInsets.only(right: 8),
+      child: GestureDetector(
+        onTap: () => setState(() => _filter = value),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+          decoration: BoxDecoration(
+            color: active ? AppTheme.accent : AppColors.surface(context),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+                color: active ? AppTheme.accent : AppColors.border(context)),
+          ),
+          child: Text(label,
+              style: TextStyle(
+                color: active ? Colors.black : AppColors.textSecondary(context),
+                fontWeight: active ? FontWeight.w700 : FontWeight.w400,
+                fontSize: 13,
+              )),
+        ),
+      ),
+    );
+  }
+
+  Widget _userRow(BuildContext ctx, Map<String, dynamic> u) {
+    final role = u['role'] ?? '';
+    final color = _roleColors[role] ?? AppColors.textHint(ctx);
+    final name = u['name'] ?? '';
+    final email = u['email'] ?? '';
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.card(ctx),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.border(ctx)),
+      ),
+      child: Row(
+        children: [
+          CircleAvatar(
+            backgroundColor: color.withOpacity(0.12),
+            radius: 20,
+            child: Text(name.isNotEmpty ? name[0].toUpperCase() : '?',
+                style: TextStyle(color: color, fontWeight: FontWeight.w700)),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Expanded(flex: 3,
-                    child: Text('Name',
-                        style: TextStyle(
-                            color: AppColors.textHint(context),
-                            fontSize: 11,
-                            fontWeight: FontWeight.w700,
-                            letterSpacing: 0.5))),
-                Expanded(flex: 4,
-                    child: Text('Email',
-                        style: TextStyle(
-                            color: AppColors.textHint(context),
-                            fontSize: 11,
-                            fontWeight: FontWeight.w700,
-                            letterSpacing: 0.5))),
-                Expanded(flex: 2,
-                    child: Text('Role',
-                        style: TextStyle(
-                            color: AppColors.textHint(context),
-                            fontSize: 11,
-                            fontWeight: FontWeight.w700,
-                            letterSpacing: 0.5))),
+                Text(name,
+                    style: TextStyle(
+                        color: AppColors.textPrimary(ctx),
+                        fontSize: 15, fontWeight: FontWeight.w700)),
+                Text(email,
+                    style: TextStyle(color: AppColors.textSecondary(ctx), fontSize: 12)),
               ],
             ),
           ),
           Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
             decoration: BoxDecoration(
-              color: AppColors.card(context),
-              borderRadius: const BorderRadius.vertical(
-                  bottom: Radius.circular(12)),
-              border: Border(
-                left: BorderSide(color: AppColors.border(context)),
-                right: BorderSide(color: AppColors.border(context)),
-                bottom: BorderSide(color: AppColors.border(context)),
-              ),
+              color: color.withOpacity(0.12),
+              borderRadius: BorderRadius.circular(20),
             ),
-            child: Column(
-              children: _users.asMap().entries.map((entry) {
-                final i = entry.key;
-                final user = entry.value;
-                final roleColor = _roleColor(user.role);
-                return Container(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 16, vertical: 14),
-                  decoration: BoxDecoration(
-                    border: i < _users.length - 1
-                        ? Border(
-                            bottom: BorderSide(
-                                color: AppColors.border(context)))
-                        : null,
-                  ),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        flex: 3,
-                        child: Row(
-                          children: [
-                            CircleAvatar(
-                              radius: 15,
-                              backgroundColor: roleColor.withOpacity(0.12),
-                              child: Text(user.name.isNotEmpty ? user.name[0] : '?',
-                                  style: TextStyle(
-                                      color: roleColor,
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w800)),
-                            ),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: Text(user.name,
-                                  style: TextStyle(
-                                      color: AppColors.textPrimary(context),
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.w600),
-                                  overflow: TextOverflow.ellipsis),
-                            ),
-                          ],
-                        ),
-                      ),
-                      Expanded(
-                        flex: 4,
-                        child: Text(user.email,
-                            style: TextStyle(
-                                color: AppColors.textSecondary(context),
-                                fontSize: 12),
-                            overflow: TextOverflow.ellipsis),
-                      ),
-                      Expanded(
-                        flex: 2,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 10, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: roleColor.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                          child: Text(user.role,
-                              style: TextStyle(
-                                  color: roleColor,
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w700),
-                              textAlign: TextAlign.center),
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-              }).toList(),
-            ),
+            child: Text(role,
+                style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.w600)),
           ),
         ],
       ),
@@ -1203,10 +1197,14 @@ class _UsersPageState extends State<_UsersPage> {
   }
 }
 
-// ─── SETTINGS ─────────────────────────────────────────────────────────────────
-class _AdminSettingsPage extends StatelessWidget {
+class _AdminSettingsPage extends StatefulWidget {
   const _AdminSettingsPage();
 
+  @override
+  State<_AdminSettingsPage> createState() => _AdminSettingsPageState();
+}
+
+class _AdminSettingsPageState extends State<_AdminSettingsPage> {
   @override
   Widget build(BuildContext context) {
     final textPri = AppColors.textPrimary(context);
@@ -1223,19 +1221,416 @@ class _AdminSettingsPage extends StatelessWidget {
           const SizedBox(height: 24),
           _section(context, 'Account', [
             _row(context, Icons.person_outline_rounded,
-                'Edit profile', 'Update your admin details'),
+                'Edit profile', 'Update your admin details',
+                onTap: () => _showEditProfileSheet(context)),
             _row(context, Icons.lock_outline_rounded,
-                'Change password', 'Update your password'),
+                'Change password', 'Update your password',
+                onTap: () => _showChangePasswordSheet(context)),
           ]),
           const SizedBox(height: 20),
           _section(context, 'Platform', [
             _row(context, Icons.notifications_outlined,
-                'Notifications', 'Manage alert preferences'),
+                'Notifications', 'Manage alert preferences',
+                onTap: () => _showNotificationsSheet(context)),
             _row(context, Icons.policy_outlined,
-                'Terms & policies', 'View platform policies'),
+                'Terms & policies', 'View platform policies',
+                onTap: () => Navigator.push(context,
+                    MaterialPageRoute(builder: (_) => const _TermsPolicyScreen()))),
             _row(context, Icons.help_outline_rounded,
-                'Help & support', 'Get help from our team'),
+                'Help & support', 'Get help from our team',
+                onTap: () => Navigator.push(context,
+                    MaterialPageRoute(builder: (_) => const _HelpSupportScreen()))),
           ]),
+        ],
+      ),
+    );
+  }
+
+  // ── EDIT PROFILE ──────────────────────────────────────────────────────────
+  void _showEditProfileSheet(BuildContext context) {
+    final auth = Provider.of<AuthProvider>(context, listen: false);
+    final nameCtrl = TextEditingController();
+    final emailCtrl = TextEditingController();
+    bool loading = true;
+    bool saving = false;
+    String error = '';
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: AppColors.card(context),
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, set) {
+          // Load current profile once
+          if (loading && error.isEmpty) {
+            ApiService.getMyProfile(auth.token!).then((data) {
+              nameCtrl.text = data['name'] ?? '';
+              emailCtrl.text = data['email'] ?? '';
+              set(() => loading = false);
+            }).catchError((e) {
+              set(() {
+                error = e.toString().replaceAll('Exception: ', '');
+                loading = false;
+              });
+            });
+          }
+
+          return Padding(
+            padding: EdgeInsets.fromLTRB(
+                20, 20, 20, MediaQuery.of(ctx).viewInsets.bottom + 20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: Container(
+                    width: 40, height: 4,
+                    decoration: BoxDecoration(
+                      color: AppColors.border(ctx),
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Text('Edit profile',
+                    style: TextStyle(
+                        color: AppColors.textPrimary(ctx),
+                        fontSize: 18, fontWeight: FontWeight.w800)),
+                const SizedBox(height: 20),
+                if (loading)
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 30),
+                    child: Center(
+                        child: CircularProgressIndicator(color: AppTheme.accent)),
+                  )
+                else if (error.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 20),
+                    child: Text(error,
+                        style: TextStyle(color: AppColors.textSecondary(ctx))),
+                  )
+                else ...[
+                  AppTextField(
+                      controller: nameCtrl, hint: 'Full name',
+                      prefixIcon: Icons.person_outline_rounded),
+                  const SizedBox(height: 12),
+                  AppTextField(
+                      controller: emailCtrl, hint: 'Email address',
+                      prefixIcon: Icons.email_outlined,
+                      keyboardType: TextInputType.emailAddress),
+                  const SizedBox(height: 20),
+                  PrimaryButton(
+                    label: 'Save changes',
+                    isLoading: saving,
+                    onPressed: () async {
+                      if (nameCtrl.text.trim().isEmpty ||
+                          emailCtrl.text.trim().isEmpty) return;
+                      set(() => saving = true);
+                      try {
+                        await ApiService.updateMyProfile(
+                          token: auth.token!,
+                          name: nameCtrl.text.trim(),
+                          email: emailCtrl.text.trim(),
+                        );
+                        if (!context.mounted) return;
+                        Navigator.pop(ctx);
+                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                          backgroundColor: AppTheme.success,
+                          content: Text('Profile updated!',
+                              style: TextStyle(color: Colors.white)),
+                        ));
+                      } catch (e) {
+                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                          backgroundColor: AppTheme.danger,
+                          content: Text(e.toString().replaceAll('Exception: ', ''),
+                              style: const TextStyle(color: Colors.white)),
+                        ));
+                      } finally {
+                        set(() => saving = false);
+                      }
+                    },
+                  ),
+                ],
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  // ── CHANGE PASSWORD ───────────────────────────────────────────────────────
+  void _showChangePasswordSheet(BuildContext context) {
+    final auth = Provider.of<AuthProvider>(context, listen: false);
+    final currentCtrl = TextEditingController();
+    final newCtrl = TextEditingController();
+    final confirmCtrl = TextEditingController();
+    bool saving = false;
+    bool obscure1 = true, obscure2 = true, obscure3 = true;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: AppColors.card(context),
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, set) => Padding(
+          padding: EdgeInsets.fromLTRB(
+              20, 20, 20, MediaQuery.of(ctx).viewInsets.bottom + 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 40, height: 4,
+                  decoration: BoxDecoration(
+                    color: AppColors.border(ctx),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text('Change password',
+                  style: TextStyle(
+                      color: AppColors.textPrimary(ctx),
+                      fontSize: 18, fontWeight: FontWeight.w800)),
+              const SizedBox(height: 20),
+              AppTextField(
+                controller: currentCtrl,
+                hint: 'Current password',
+                prefixIcon: Icons.lock_outline_rounded,
+                obscure: obscure1,
+                suffixIcon: IconButton(
+                  icon: Icon(obscure1 ? Icons.visibility_off : Icons.visibility,
+                      color: AppColors.textHint(ctx), size: 20),
+                  onPressed: () => set(() => obscure1 = !obscure1),
+                ),
+              ),
+              const SizedBox(height: 12),
+              AppTextField(
+                controller: newCtrl,
+                hint: 'New password (min 6 characters)',
+                prefixIcon: Icons.lock_reset_rounded,
+                obscure: obscure2,
+                suffixIcon: IconButton(
+                  icon: Icon(obscure2 ? Icons.visibility_off : Icons.visibility,
+                      color: AppColors.textHint(ctx), size: 20),
+                  onPressed: () => set(() => obscure2 = !obscure2),
+                ),
+              ),
+              const SizedBox(height: 12),
+              AppTextField(
+                controller: confirmCtrl,
+                hint: 'Confirm new password',
+                prefixIcon: Icons.lock_reset_rounded,
+                obscure: obscure3,
+                suffixIcon: IconButton(
+                  icon: Icon(obscure3 ? Icons.visibility_off : Icons.visibility,
+                      color: AppColors.textHint(ctx), size: 20),
+                  onPressed: () => set(() => obscure3 = !obscure3),
+                ),
+              ),
+              const SizedBox(height: 20),
+              PrimaryButton(
+                label: 'Update password',
+                isLoading: saving,
+                onPressed: () async {
+                  if (currentCtrl.text.isEmpty || newCtrl.text.length < 6) {
+                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                      backgroundColor: AppTheme.danger,
+                      content: Text('Fill in all fields (min 6 characters)',
+                          style: TextStyle(color: Colors.white)),
+                    ));
+                    return;
+                  }
+                  if (newCtrl.text != confirmCtrl.text) {
+                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                      backgroundColor: AppTheme.danger,
+                      content: Text('New passwords do not match',
+                          style: TextStyle(color: Colors.white)),
+                    ));
+                    return;
+                  }
+                  set(() => saving = true);
+                  try {
+                    await ApiService.changeMyPassword(
+                      token: auth.token!,
+                      currentPassword: currentCtrl.text,
+                      newPassword: newCtrl.text,
+                    );
+                    if (!context.mounted) return;
+                    Navigator.pop(ctx);
+                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                      backgroundColor: AppTheme.success,
+                      content: Text('Password changed successfully!',
+                          style: TextStyle(color: Colors.white)),
+                    ));
+                  } catch (e) {
+                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                      backgroundColor: AppTheme.danger,
+                      content: Text(e.toString().replaceAll('Exception: ', ''),
+                          style: const TextStyle(color: Colors.white)),
+                    ));
+                  } finally {
+                    set(() => saving = false);
+                  }
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ── NOTIFICATIONS ─────────────────────────────────────────────────────────
+  void _showNotificationsSheet(BuildContext context) {
+    final auth = Provider.of<AuthProvider>(context, listen: false);
+    bool loading = true;
+    bool saving = false;
+    String error = '';
+    bool emailNotif = true, pushNotif = true, orderAlerts = true;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: AppColors.card(context),
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, set) {
+          if (loading && error.isEmpty) {
+            ApiService.getNotificationPrefs(auth.token!).then((data) {
+              set(() {
+                emailNotif = data['email_notifications'] ?? true;
+                pushNotif = data['push_notifications'] ?? true;
+                orderAlerts = data['order_alerts'] ?? true;
+                loading = false;
+              });
+            }).catchError((e) {
+              set(() {
+                error = e.toString().replaceAll('Exception: ', '');
+                loading = false;
+              });
+            });
+          }
+
+          Future<void> save() async {
+            set(() => saving = true);
+            try {
+              await ApiService.updateNotificationPrefs(
+                token: auth.token!,
+                emailNotifications: emailNotif,
+                pushNotifications: pushNotif,
+                orderAlerts: orderAlerts,
+              );
+            } catch (e) {
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                  backgroundColor: AppTheme.danger,
+                  content: Text(e.toString().replaceAll('Exception: ', ''),
+                      style: const TextStyle(color: Colors.white)),
+                ));
+              }
+            } finally {
+              set(() => saving = false);
+            }
+          }
+
+          return Padding(
+            padding: EdgeInsets.fromLTRB(
+                20, 20, 20, MediaQuery.of(ctx).viewInsets.bottom + 20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: Container(
+                    width: 40, height: 4,
+                    decoration: BoxDecoration(
+                      color: AppColors.border(ctx),
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Text('Notifications',
+                    style: TextStyle(
+                        color: AppColors.textPrimary(ctx),
+                        fontSize: 18, fontWeight: FontWeight.w800)),
+                const SizedBox(height: 20),
+                if (loading)
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 30),
+                    child: Center(
+                        child: CircularProgressIndicator(color: AppTheme.accent)),
+                  )
+                else if (error.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 20),
+                    child: Text(error,
+                        style: TextStyle(color: AppColors.textSecondary(ctx))),
+                  )
+                else ...[
+                  _notifSwitch(ctx, 'Email notifications',
+                      'Get order and platform updates via email',
+                      emailNotif, (v) { set(() => emailNotif = v); save(); }),
+                  _notifSwitch(ctx, 'Push notifications',
+                      'Get real-time alerts on this device',
+                      pushNotif, (v) { set(() => pushNotif = v); save(); }),
+                  _notifSwitch(ctx, 'Order alerts',
+                      'Notify me about new and updated orders',
+                      orderAlerts, (v) { set(() => orderAlerts = v); save(); }),
+                  if (saving)
+                    const Padding(
+                      padding: EdgeInsets.only(top: 12),
+                      child: Center(
+                        child: SizedBox(
+                          width: 16, height: 16,
+                          child: CircularProgressIndicator(
+                              color: AppTheme.accent, strokeWidth: 2),
+                        ),
+                      ),
+                    ),
+                ],
+                const SizedBox(height: 8),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _notifSwitch(BuildContext ctx, String title, String subtitle,
+      bool value, ValueChanged<bool> onChanged) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title,
+                    style: TextStyle(
+                        color: AppColors.textPrimary(ctx),
+                        fontSize: 14, fontWeight: FontWeight.w600)),
+                Text(subtitle,
+                    style: TextStyle(
+                        color: AppColors.textHint(ctx), fontSize: 12)),
+              ],
+            ),
+          ),
+          Switch(
+            value: value,
+            activeColor: AppTheme.accent,
+            onChanged: onChanged,
+          ),
         ],
       ),
     );
@@ -1266,45 +1661,687 @@ class _AdminSettingsPage extends StatelessWidget {
     );
   }
 
-  Widget _row(BuildContext ctx, IconData icon, String label, String sub) {
-    return Container(
-      padding: const EdgeInsets.symmetric(
-          horizontal: 16, vertical: 14),
-      decoration: BoxDecoration(
-        border: Border(
-          bottom: BorderSide(color: AppColors.border(ctx)),
+  Widget _row(BuildContext ctx, IconData icon, String label, String sub,
+      {required VoidCallback onTap}) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(14),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        decoration: BoxDecoration(
+          border: Border(bottom: BorderSide(color: AppColors.border(ctx))),
         ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: AppColors.surface(ctx),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(icon, color: AppColors.textSecondary(ctx), size: 17),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(label,
+                      style: TextStyle(
+                          color: AppColors.textPrimary(ctx),
+                          fontSize: 14, fontWeight: FontWeight.w600)),
+                  Text(sub,
+                      style: TextStyle(color: AppColors.textHint(ctx), fontSize: 12)),
+                ],
+              ),
+            ),
+            Icon(Icons.arrow_forward_ios_rounded,
+                color: AppColors.textHint(ctx), size: 13),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─── TERMS & POLICIES SCREEN ──────────────────────────────────────────────────
+class _TermsPolicyScreen extends StatelessWidget {
+  const _TermsPolicyScreen();
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: AppColors.bg(context),
+      appBar: AppBar(title: const Text('Terms & Policies')),
+      body: ListView(
+        padding: const EdgeInsets.all(24),
+        children: [
+          _policySection(context, 'Terms of Service',
+              'By using FindFood as an admin, you agree to manage the '
+              'platform responsibly, protect user data, and enforce '
+              'restaurant and rider guidelines fairly and consistently.'),
+          _policySection(context, 'Privacy Policy',
+              'FindFood collects user, restaurant, and rider data solely '
+              'to operate the delivery platform. Data is never sold to '
+              'third parties and is stored securely.'),
+          _policySection(context, 'Restaurant Approval Guidelines',
+              'Restaurants must provide accurate business details, a valid '
+              'address, and comply with local food safety standards before '
+              'approval. Admins reserve the right to reject or suspend '
+              'any restaurant that violates platform policies.'),
+          _policySection(context, 'Rider Conduct Policy',
+              'Riders are expected to deliver orders promptly, communicate '
+              'professionally with customers, and follow all traffic laws. '
+              'Repeated violations may result in account suspension.'),
+          _policySection(context, 'Data Retention',
+              'Order history, chat messages, and payment records are '
+              'retained for as long as the account remains active, and '
+              'for a reasonable period afterward for legal compliance.'),
+        ],
+      ),
+    );
+  }
+
+  Widget _policySection(BuildContext ctx, String title, String body) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(title,
+              style: TextStyle(
+                  color: AppColors.textPrimary(ctx),
+                  fontSize: 16, fontWeight: FontWeight.w700)),
+          const SizedBox(height: 8),
+          Text(body,
+              style: TextStyle(
+                  color: AppColors.textSecondary(ctx),
+                  fontSize: 14, height: 1.6)),
+        ],
+      ),
+    );
+  }
+}
+
+// ─── HELP & SUPPORT SCREEN ────────────────────────────────────────────────────
+class _HelpSupportScreen extends StatelessWidget {
+  const _HelpSupportScreen();
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: AppColors.bg(context),
+      appBar: AppBar(title: const Text('Help & Support')),
+      body: ListView(
+        padding: const EdgeInsets.all(24),
+        children: [
+          Text('Frequently asked questions',
+              style: TextStyle(
+                  color: AppColors.textPrimary(context),
+                  fontSize: 18, fontWeight: FontWeight.w800)),
+          const SizedBox(height: 20),
+          _faqItem(context, 'How do I approve a restaurant?',
+              'Go to the Approvals tab, review the restaurant\'s details, '
+              'then tap Approve or Reject. Approved restaurants immediately '
+              'gain access to their dashboard.'),
+          _faqItem(context, 'How do I remove a rider or user?',
+              'User removal is currently done directly through the database. '
+              'A dedicated admin action is planned for a future update.'),
+          _faqItem(context, 'Why don\'t I see live order data?',
+              'Make sure your backend server is running and that you\'ve '
+              'applied the latest backend endpoints from your project files.'),
+          _faqItem(context, 'How do platform stats update?',
+              'Stats on the Overview tab are calculated live from your '
+              'database each time you open or refresh that tab.'),
+          const SizedBox(height: 32),
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: AppTheme.accentDim,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: AppTheme.accent.withOpacity(0.3)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    const Icon(Icons.support_agent_rounded,
+                        color: AppTheme.accent, size: 22),
+                    const SizedBox(width: 10),
+                    Text('Need more help?',
+                        style: TextStyle(
+                            color: AppColors.textPrimary(context),
+                            fontSize: 15, fontWeight: FontWeight.w700)),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Reach the FindFood engineering team at '
+                  'support@findfood.app for anything not covered here.',
+                  style: TextStyle(
+                      color: AppColors.textSecondary(context),
+                      fontSize: 13, height: 1.5),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _faqItem(BuildContext ctx, String question, String answer) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 18),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(question,
+              style: TextStyle(
+                  color: AppColors.textPrimary(ctx),
+                  fontSize: 14, fontWeight: FontWeight.w700)),
+          const SizedBox(height: 6),
+          Text(answer,
+              style: TextStyle(
+                  color: AppColors.textSecondary(ctx),
+                  fontSize: 13, height: 1.5)),
+        ],
+      ),
+    );
+  }
+}
+
+// ─── ADMIN ORDERS SCREEN ──────────────────────────────────────────────────────
+class _AdminOrdersScreen extends StatefulWidget {
+  const _AdminOrdersScreen();
+
+  @override
+  State<_AdminOrdersScreen> createState() => _AdminOrdersScreenState();
+}
+
+class _AdminOrdersScreenState extends State<_AdminOrdersScreen> {
+  List<Map<String, dynamic>> _orders = [];
+  bool _loading = true;
+  String _error = '';
+  String _filter = 'all';
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    final auth = Provider.of<AuthProvider>(context, listen: false);
+    if (auth.token == null) return;
+    setState(() { _loading = true; _error = ''; });
+    try {
+      final orders = await ApiService.getAllOrdersAdmin(auth.token!);
+      setState(() => _orders = orders);
+    } catch (e) {
+      setState(() => _error = e.toString().replaceAll('Exception: ', ''));
+    } finally {
+      setState(() => _loading = false);
+    }
+  }
+
+  List<Map<String, dynamic>> get _filtered {
+    if (_filter == 'all') return _orders;
+    return _orders.where((o) => o['status'] == _filter).toList();
+  }
+
+  static const Map<String, Color> _statusColors = {
+    'pending':          AppTheme.warning,
+    'scheduled':        AppTheme.warning,
+    'preparing':        AppTheme.accent,
+    'ready':            AppTheme.success,
+    'out_for_delivery': AppTheme.accent,
+    'delivered':        AppTheme.success,
+  };
+
+  @override
+  Widget build(BuildContext context) {
+    final textPri = AppColors.textPrimary(context);
+    final textSec = AppColors.textSecondary(context);
+
+    return Scaffold(
+      backgroundColor: AppColors.bg(context),
+      appBar: AppBar(
+        title: const Text('All Orders'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh_rounded),
+            onPressed: _load,
+          ),
+        ],
+      ),
+      body: RefreshIndicator(
+        color: AppTheme.accent,
+        onRefresh: _load,
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text('${_orders.length} total orders',
+                      style: TextStyle(color: textSec, fontSize: 13)),
+                ],
+              ),
+            ),
+            SizedBox(
+              height: 42,
+              child: ListView(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                children: [
+                  _chip('All', 'all'),
+                  _chip('Pending', 'pending'),
+                  _chip('Preparing', 'preparing'),
+                  _chip('Ready', 'ready'),
+                  _chip('On the way', 'out_for_delivery'),
+                  _chip('Delivered', 'delivered'),
+                ],
+              ),
+            ),
+            const SizedBox(height: 8),
+            Expanded(
+              child: _loading
+                  ? const Center(
+                      child: CircularProgressIndicator(color: AppTheme.accent))
+                  : _error.isNotEmpty
+                      ? Center(
+                          child: Padding(
+                            padding: const EdgeInsets.all(24),
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(Icons.wifi_off_rounded,
+                                    size: 48, color: AppColors.textHint(context)),
+                                const SizedBox(height: 12),
+                                Text(_error,
+                                    style: TextStyle(color: textSec),
+                                    textAlign: TextAlign.center),
+                                const SizedBox(height: 16),
+                                ElevatedButton(
+                                    onPressed: _load, child: const Text('Retry')),
+                              ],
+                            ),
+                          ),
+                        )
+                      : _filtered.isEmpty
+                          ? Center(
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(Icons.receipt_long_outlined,
+                                      size: 56, color: AppColors.textHint(context)),
+                                  const SizedBox(height: 16),
+                                  Text('No orders found',
+                                      style: TextStyle(
+                                          color: textPri, fontSize: 17,
+                                          fontWeight: FontWeight.w700)),
+                                ],
+                              ),
+                            )
+                          : ListView.builder(
+                              padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+                              itemCount: _filtered.length,
+                              itemBuilder: (_, i) => _orderRow(context, _filtered[i]),
+                            ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _chip(String label, String value) {
+    final active = _filter == value;
+    return Padding(
+      padding: const EdgeInsets.only(right: 8),
+      child: GestureDetector(
+        onTap: () => setState(() => _filter = value),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+          decoration: BoxDecoration(
+            color: active ? AppTheme.accent : AppColors.surface(context),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+                color: active ? AppTheme.accent : AppColors.border(context)),
+          ),
+          child: Text(label,
+              style: TextStyle(
+                color: active ? Colors.black : AppColors.textSecondary(context),
+                fontWeight: active ? FontWeight.w700 : FontWeight.w400,
+                fontSize: 13,
+              )),
+        ),
+      ),
+    );
+  }
+
+  Widget _orderRow(BuildContext ctx, Map<String, dynamic> o) {
+    final status = o['status'] ?? '';
+    final color = _statusColors[status] ?? AppColors.textHint(ctx);
+    final amount = ((o['total_amount'] ?? 0) as int) / 100;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.card(ctx),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.border(ctx)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text('Order #${o['id']}',
+                  style: TextStyle(
+                      color: AppColors.textPrimary(ctx),
+                      fontSize: 15, fontWeight: FontWeight.w700)),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: color.withOpacity(0.12),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(status.replaceAll('_', ' '),
+                    style: TextStyle(
+                        color: color, fontSize: 11, fontWeight: FontWeight.w700)),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Icon(Icons.storefront_outlined,
+                  size: 14, color: AppColors.textHint(ctx)),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(o['restaurant_name'] ?? 'Unknown',
+                    style: TextStyle(
+                        color: AppColors.textSecondary(ctx), fontSize: 13),
+                    overflow: TextOverflow.ellipsis),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Row(
+            children: [
+              Icon(Icons.person_outline_rounded,
+                  size: 14, color: AppColors.textHint(ctx)),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(o['customer_name'] ?? 'Unknown',
+                    style: TextStyle(
+                        color: AppColors.textSecondary(ctx), fontSize: 13),
+                    overflow: TextOverflow.ellipsis),
+              ),
+              Text('GH₵ ${amount.toStringAsFixed(2)}',
+                  style: const TextStyle(
+                      color: AppTheme.accent, fontSize: 14, fontWeight: FontWeight.w800)),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─── ADMIN REVENUE SCREEN ─────────────────────────────────────────────────────
+class _AdminRevenueScreen extends StatefulWidget {
+  const _AdminRevenueScreen();
+
+  @override
+  State<_AdminRevenueScreen> createState() => _AdminRevenueScreenState();
+}
+
+class _AdminRevenueScreenState extends State<_AdminRevenueScreen> {
+  Map<String, dynamic>? _data;
+  bool _loading = true;
+  String _error = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    final auth = Provider.of<AuthProvider>(context, listen: false);
+    if (auth.token == null) return;
+    setState(() { _loading = true; _error = ''; });
+    try {
+      final data = await ApiService.getRevenueDetails(auth.token!);
+      setState(() => _data = data as Map<String, dynamic>?);
+    } catch (e) {
+      setState(() => _error = e.toString().replaceAll('Exception: ', ''));
+    } finally {
+      setState(() => _loading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final textPri = AppColors.textPrimary(context);
+    final textSec = AppColors.textSecondary(context);
+
+    return Scaffold(
+      backgroundColor: AppColors.bg(context),
+      appBar: AppBar(
+        title: const Text('Revenue'),
+        actions: [
+          IconButton(icon: const Icon(Icons.refresh_rounded), onPressed: _load),
+        ],
+      ),
+      body: _loading
+          ? const Center(child: CircularProgressIndicator(color: AppTheme.accent))
+          : _error.isNotEmpty
+              ? Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.wifi_off_rounded,
+                            size: 48, color: AppColors.textHint(context)),
+                        const SizedBox(height: 12),
+                        Text(_error,
+                            style: TextStyle(color: textSec),
+                            textAlign: TextAlign.center),
+                        const SizedBox(height: 16),
+                        ElevatedButton(onPressed: _load, child: const Text('Retry')),
+                      ],
+                    ),
+                  ),
+                )
+              : RefreshIndicator(
+                  color: AppTheme.accent,
+                  onRefresh: _load,
+                  child: ListView(
+                    padding: const EdgeInsets.all(20),
+                    children: [
+                      // Hero revenue card
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(24),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF8B5CF6).withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(18),
+                          border: Border.all(
+                              color: const Color(0xFF8B5CF6).withOpacity(0.3)),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('Total revenue (delivered orders)',
+                                style: TextStyle(color: textSec, fontSize: 13)),
+                            const SizedBox(height: 8),
+                            Text(
+                              'GH₵ ${((_data?['total_revenue'] ?? 0) / 100).toStringAsFixed(2)}',
+                              style: const TextStyle(
+                                  color: Color(0xFF8B5CF6),
+                                  fontSize: 32, fontWeight: FontWeight.w800,
+                                  letterSpacing: -1),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _miniStat(context, 'Delivered',
+                                '${_data?['delivered_orders'] ?? 0}',
+                                Icons.check_circle_outline_rounded,
+                                AppTheme.success),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: _miniStat(context, 'In progress',
+                                '${_data?['pending_orders'] ?? 0}',
+                                Icons.hourglass_top_rounded,
+                                AppTheme.warning),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      _miniStat(context, 'Average order value',
+                          'GH₵ ${((_data?['average_order_value'] ?? 0) / 100).toStringAsFixed(2)}',
+                          Icons.receipt_rounded, AppTheme.accent, fullWidth: true),
+
+                      const SizedBox(height: 28),
+                      Text('Top earning restaurants',
+                          style: TextStyle(
+                              color: textPri, fontSize: 17, fontWeight: FontWeight.w700)),
+                      const SizedBox(height: 14),
+                      ...((_data?['top_restaurants'] ?? []) as List).isEmpty
+                          ? [
+                              Padding(
+                                padding: const EdgeInsets.symmetric(vertical: 20),
+                                child: Text('No revenue data yet',
+                                    style: TextStyle(color: textSec)),
+                              ),
+                            ]
+                          : ((_data!['top_restaurants'] as List)
+                              .asMap()
+                              .entries
+                              .map((e) => _topRestaurantRow(
+                                  context, e.key + 1, e.value))
+                              .toList()),
+
+                      const SizedBox(height: 28),
+                      Text('Last 7 days',
+                          style: TextStyle(
+                              color: textPri, fontSize: 17, fontWeight: FontWeight.w700)),
+                      const SizedBox(height: 14),
+                      ...((_data?['daily_revenue'] ?? []) as List)
+                          .map((d) => _dayRow(context, d)),
+                    ],
+                  ),
+                ),
+    );
+  }
+
+  Widget _miniStat(BuildContext ctx, String label, String value,
+      IconData icon, Color color, {bool fullWidth = false}) {
+    return Container(
+      width: fullWidth ? double.infinity : null,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.card(ctx),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.border(ctx)),
       ),
       child: Row(
         children: [
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: AppColors.surface(ctx),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Icon(icon,
-                color: AppColors.textSecondary(ctx), size: 17),
-          ),
-          const SizedBox(width: 14),
+          Icon(icon, color: color, size: 20),
+          const SizedBox(width: 10),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(label,
+                Text(value,
                     style: TextStyle(
                         color: AppColors.textPrimary(ctx),
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600)),
-                Text(sub,
-                    style: TextStyle(
-                        color: AppColors.textHint(ctx),
-                        fontSize: 12)),
+                        fontSize: 16, fontWeight: FontWeight.w800)),
+                Text(label,
+                    style: TextStyle(color: AppColors.textHint(ctx), fontSize: 11)),
               ],
             ),
           ),
-          Icon(Icons.arrow_forward_ios_rounded,
-              color: AppColors.textHint(ctx), size: 13),
+        ],
+      ),
+    );
+  }
+
+  Widget _topRestaurantRow(BuildContext ctx, int rank, dynamic r) {
+    final revenue = ((r['revenue'] ?? 0) as int) / 100;
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppColors.card(ctx),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.border(ctx)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 28, height: 28,
+            decoration: BoxDecoration(
+              color: AppTheme.accent.withOpacity(0.12),
+              shape: BoxShape.circle,
+            ),
+            child: Center(
+              child: Text('$rank',
+                  style: const TextStyle(
+                      color: AppTheme.accent, fontWeight: FontWeight.w800, fontSize: 12)),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(r['name'] ?? 'Unknown',
+                style: TextStyle(
+                    color: AppColors.textPrimary(ctx),
+                    fontSize: 14, fontWeight: FontWeight.w600)),
+          ),
+          Text('GH₵ ${revenue.toStringAsFixed(2)}',
+              style: const TextStyle(
+                  color: AppTheme.accent, fontSize: 13, fontWeight: FontWeight.w700)),
+        ],
+      ),
+    );
+  }
+
+  Widget _dayRow(BuildContext ctx, dynamic d) {
+    final revenue = ((d['revenue'] ?? 0) as int) / 100;
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: AppColors.card(ctx),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: AppColors.border(ctx)),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(d['day'] ?? '',
+              style: TextStyle(color: AppColors.textSecondary(ctx), fontSize: 13)),
+          Text('GH₵ ${revenue.toStringAsFixed(2)}',
+              style: TextStyle(
+                  color: AppColors.textPrimary(ctx),
+                  fontSize: 13, fontWeight: FontWeight.w700)),
         ],
       ),
     );

@@ -121,6 +121,12 @@ class AppTheme {
   static Color? get textSecond => null;
 
   static Color? get textPrimary => null;
+
+  static get body => null;
+
+  static get display => null;
+
+  static Color? get cardBorder => null;
 }
 
 // --- DYNAMIC COLORS (reads current brightness) ---

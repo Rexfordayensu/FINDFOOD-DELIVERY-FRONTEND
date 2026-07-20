@@ -1,3 +1,5 @@
+import 'dart:async';
+import '../customer/food_feed_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../theme.dart';
@@ -5,6 +7,8 @@ import '../../widgets/widgets.dart';
 import '../../models/models.dart';
 import '../../services/api_service.dart';
 import '../../services/providers.dart';
+import '../customer/order_chat_screen.dart';
+
 
 class RiderDashboard extends StatefulWidget {
   const RiderDashboard({super.key});
@@ -28,8 +32,8 @@ class _RiderDashboardState extends State<RiderDashboard> {
     return Scaffold(
       body: pages[_selectedIndex],
       bottomNavigationBar: Container(
-        decoration: const BoxDecoration(
-          border: Border(top: BorderSide(color: AppTheme.darkBorder)),
+        decoration: BoxDecoration(
+          border: Border(top: BorderSide(color: AppTheme.cardBorder ?? Colors.grey)),
         ),
         child: BottomNavigationBar(
           currentIndex: _selectedIndex,
@@ -76,11 +80,22 @@ class _AvailableDeliveriesPageState extends State<_AvailableDeliveriesPage> {
   bool   _loading      = true;
   bool   _isOnline     = true;
   String _error        = '';
+  Timer? _pollTimer;
+  int    _previousCount = 0;
 
   @override
   void initState() {
     super.initState();
     _load();
+    // Poll every 6 seconds for new available jobs
+    _pollTimer = Timer.periodic(
+        const Duration(seconds: 6), (_) => _poll());
+  }
+
+  @override
+  void dispose() {
+    _pollTimer?.cancel();
+    super.dispose();
   }
 
   Future<void> _load() async {
@@ -89,11 +104,55 @@ class _AvailableDeliveriesPageState extends State<_AvailableDeliveriesPage> {
     setState(() { _loading = true; _error = ''; });
     try {
       final response = await ApiService.getAvailableDeliveries(auth.token!);
-      setState(() => _orders = response);
+      if (!mounted) return;
+      setState(() {
+        _orders = response;
+        _previousCount = response.length;
+      });
     } catch (e) {
+      if (!mounted) return;
       setState(() => _error = e.toString().replaceAll('Exception: ', ''));
     } finally {
-      setState(() => _loading = false);
+      if (mounted) {
+        setState(() => _loading = false);
+      }
+    }
+  }
+
+  // Silent background refresh — no loading spinner, just updates the list
+  Future<void> _poll() async {
+    if (!_isOnline) return;
+    final auth = Provider.of<AuthProvider>(context, listen: false);
+    if (auth.token == null) return;
+    try {
+      final response = await ApiService.getAvailableDeliveries(auth.token!);
+      if (!mounted) return;
+      if (response.length > _previousCount) {
+        // New job appeared — notify rider
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          backgroundColor: AppTheme.accent,
+          behavior: SnackBarBehavior.floating,
+          margin: const EdgeInsets.all(12),
+          shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12)),
+          content: const Row(
+            children: [
+              Icon(Icons.notifications_active_rounded,
+                  color: Colors.black, size: 18),
+              SizedBox(width: 8),
+              Text('New delivery available!',
+                  style: TextStyle(
+                      color: Colors.black, fontWeight: FontWeight.w700)),
+            ],
+          ),
+        ));
+      }
+      setState(() {
+        _orders = response;
+        _previousCount = response.length;
+      });
+    } catch (_) {
+      // Silent fail on background poll
     }
   }
 
@@ -101,12 +160,12 @@ class _AvailableDeliveriesPageState extends State<_AvailableDeliveriesPage> {
     final auth = Provider.of<AuthProvider>(context, listen: false);
     try {
       await ApiService.updateOrderStatus(
-        token: auth.token!,
-        orderId: order.id,
-        newStatus: 'out_for_delivery',
-      );
-      setState(() => _orders.removeWhere((o) => o.id == order.id));
+  auth.token!,
+  order.id,
+  'out_for_delivery', // Just pass the raw string values!
+);
       if (!mounted) return;
+      setState(() => _orders.removeWhere((o) => o.id == order.id));
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
         backgroundColor: AppTheme.success,
         content: Text('Delivery #${order.id} accepted! Head to pickup.',
@@ -160,7 +219,7 @@ class _AvailableDeliveriesPageState extends State<_AvailableDeliveriesPage> {
                         border: Border.all(
                           color: _isOnline
                               ? AppTheme.success.withValues(alpha: 0.5)
-                              : AppTheme.darkBorder,
+                              : AppTheme.cardBorder  ?? Colors.grey,
                         ),
                       ),
                       child: Row(
@@ -266,7 +325,7 @@ class _AvailableDeliveriesPageState extends State<_AvailableDeliveriesPage> {
       decoration: BoxDecoration(
         color: AppTheme.card,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppTheme.darkBorder),
+        border: Border.all(color: AppTheme.cardBorder  ?? Colors.grey),
       ),
       child: Row(
         children: [
@@ -305,15 +364,38 @@ class _AvailableDeliveriesPageState extends State<_AvailableDeliveriesPage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text('Order #${order.id}', style: AppText.title),
-                    Text(order.displayTotal,
-                        style: AppText.title
-                            .copyWith(color: AppTheme.accent)),
-                  ],
+               Row(
+  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+  children: [
+    // Wrap the Order ID and Chat icon together
+    Row(
+      children: [
+        Text('Order #${order.id}', style: AppText.title),
+        const SizedBox(width: 8),
+        IconButton(
+          icon: const Icon(Icons.chat_bubble_outline_rounded, size: 20, color: AppTheme.accent),
+          constraints: const BoxConstraints(), // Keeps the button compact
+          padding: EdgeInsets.zero,
+          onPressed: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => OrderChatScreen(
+                  orderId: order.id,
+                  order: order,
+                  otherPartyLabel: order.restaurantName ?? 'Restaurant', // Uses the getter we just made!
                 ),
+              ),
+            );
+          },
+        ),
+      ],
+    ),
+    Text(order.displayTotal,
+        style: AppText.title
+            .copyWith(color: AppTheme.accent)),
+  ],
+),
                 const SizedBox(height: 14),
 
                 // Pickup
@@ -354,7 +436,7 @@ class _AvailableDeliveriesPageState extends State<_AvailableDeliveriesPage> {
                   padding: const EdgeInsets.only(left: 15),
                   child: Container(
                     width: 2, height: 20,
-                    color: AppTheme.darkBorder,
+                    color: AppTheme.cardBorder,
                   ),
                 ),
 
@@ -412,7 +494,7 @@ class _AvailableDeliveriesPageState extends State<_AvailableDeliveriesPage> {
             ),
           ),
 
-          const Divider(height: 1, color: AppTheme.darkBorder),
+          Divider(height: 1, color: AppTheme.cardBorder),
 
           // ── Accept button ───────────────────────────────────
           Padding(
@@ -459,27 +541,31 @@ class _MyDeliveriesPageState extends State<_MyDeliveriesPage> {
     setState(() { _loading = true; _error = ''; });
     try {
       final orders = await ApiService.getMyOrders(auth.token!);
+      if (!mounted) return;
       setState(() => _orders = orders);
     } catch (e) {
+      if (!mounted) return;
       setState(() => _error = e.toString().replaceAll('Exception: ', ''));
     } finally {
-      setState(() => _loading = false);
+      if (mounted) {
+        setState(() => _loading = false);
+      }
     }
   }
 
   Future<void> _markDelivered(Order order) async {
     final auth = Provider.of<AuthProvider>(context, listen: false);
     try {
-      final updated = await ApiService.updateOrderStatus(
-        token: auth.token!,
-        orderId: order.id,
-        newStatus: 'delivered',
-      );
+    await ApiService.updateOrderStatus(
+  auth.token!,
+  order.id,
+  'delivered',
+);
+      if (!mounted) return;
       setState(() {
         final idx = _orders.indexWhere((o) => o.id == order.id);
-        if (idx != -1) _orders[idx] = updated;
+        if (idx != -1) _orders[idx] = _orders[idx].copyWith(status: 'delivered');
       });
-      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
         backgroundColor: AppTheme.success,
         content: Text('Order marked as delivered! 🎉',
@@ -556,7 +642,7 @@ class _MyDeliveriesPageState extends State<_MyDeliveriesPage> {
         border: Border.all(
           color: isActive
               ? AppTheme.accent.withValues(alpha: 0.4)
-              : AppTheme.darkBorder,
+              : AppTheme.cardBorder  ?? Colors.grey,
         ),
       ),
       child: Column(
@@ -676,7 +762,7 @@ class _RiderEarningsPage extends StatelessWidget {
         decoration: BoxDecoration(
           color: AppTheme.card,
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: AppTheme.darkBorder),
+          border: Border.all(color: AppTheme.cardBorder ?? Colors.grey),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -697,7 +783,7 @@ class _RiderEarningsPage extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppTheme.card,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppTheme.darkBorder),
+        border: Border.all(color: AppTheme.cardBorder ?? Colors.grey),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -771,8 +857,11 @@ class _RiderSettingsPage extends StatelessWidget {
                 label: 'Sign out',
                 onPressed: () {
                   auth.logout();
-                  Navigator.pushNamedAndRemoveUntil(
-                      context, '/', (_) => false);
+                  Navigator.pushAndRemoveUntil(
+                      context,
+                      MaterialPageRoute(
+                          builder: (_) => const FoodFeedScreen()),
+                      (_) => false);
                 },
               ),
             ],
@@ -789,7 +878,7 @@ class _RiderSettingsPage extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppTheme.card,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppTheme.darkBorder),
+        border: Border.all(color: AppTheme.cardBorder ?? Colors.grey),
       ),
       child: Row(
         children: [

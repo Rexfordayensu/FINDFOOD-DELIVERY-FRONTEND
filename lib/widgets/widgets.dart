@@ -301,10 +301,10 @@ class MenuItemCard extends StatelessWidget {
   final String? description;
   final bool isAvailable;
   final VoidCallback onAdd;
-
+  final Future<void> Function() onDelete;
   const MenuItemCard({
     super.key, required this.name, this.description,
-    required this.price, required this.isAvailable, required this.onAdd,
+    required this.price, required this.isAvailable, required this.onAdd, required this.onDelete,
   });
 
   @override

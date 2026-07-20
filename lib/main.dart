@@ -1,16 +1,28 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'theme.dart';
 import 'services/providers.dart';
+import 'screens/splash_screen.dart';
 import 'screens/customer/food_feed_screen.dart';
 
 void main() {
+  WidgetsFlutterBinding.ensureInitialized();
+  SystemChrome.setPreferredOrientations([
+    DeviceOrientation.portraitUp,
+    DeviceOrientation.portraitDown,
+  ]);
+  SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
+    statusBarColor: Colors.transparent,
+    statusBarIconBrightness: Brightness.light,
+  ));
   runApp(
     MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => ThemeProvider()),
         ChangeNotifierProvider(create: (_) => AuthProvider()),
         ChangeNotifierProvider(create: (_) => CartProvider()),
+        ChangeNotifierProvider(create: (_) => OrderPollingProvider()), // NEW
       ],
       child: const FindFoodApp(),
     ),
@@ -22,8 +34,6 @@ class FindFoodApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // FIX: Use Consumer instead of Provider.of so the context
-    // is always a child of MultiProvider, never the same level
     return Consumer<ThemeProvider>(
       builder: (context, themeProvider, _) {
         return MaterialApp(
@@ -32,7 +42,7 @@ class FindFoodApp extends StatelessWidget {
           theme: AppTheme.light,
           darkTheme: AppTheme.dark,
           themeMode: themeProvider.mode,
-          home: const FoodFeedScreen(),
+          home: const SplashScreen(destination: FoodFeedScreen()),
         );
       },
     );
