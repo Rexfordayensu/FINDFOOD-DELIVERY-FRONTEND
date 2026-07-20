@@ -343,7 +343,7 @@ class ApiService {
   static Future<List<Map<String, dynamic>>> getPendingRestaurants(
       String token) async {
     final response = await http.get(
-      Uri.parse('$baseUrl/admin/restaurants/pending'),
+      Uri.parse('$baseUrl/restaurants?restaurant_status=pending'),
       headers: {'Authorization': 'Bearer $token'},
     );
     if (response.statusCode == 200) {
