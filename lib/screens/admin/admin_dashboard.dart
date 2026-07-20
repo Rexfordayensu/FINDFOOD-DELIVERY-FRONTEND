@@ -5,7 +5,9 @@ import '../../theme.dart';
 import '../../widgets/widgets.dart';
 import '../../services/providers.dart';
 import '../../services/api_service.dart';
-import '../auth/login_screen.dart';
+
+int getPendingApprovalsCount(List<Map<String, dynamic>> restaurants) =>
+    restaurants.length;
 
 class AdminDashboard extends StatefulWidget {
   const AdminDashboard({super.key});
@@ -15,6 +17,7 @@ class AdminDashboard extends StatefulWidget {
 
 class _AdminDashboardState extends State<AdminDashboard> {
   int _selectedIndex = 0;
+  int _pendingApprovalsCount = 0;
 
   final _navItems = [
     {'icon': Icons.grid_view_rounded,           'label': 'Overview'},
@@ -24,10 +27,30 @@ class _AdminDashboardState extends State<AdminDashboard> {
     {'icon': Icons.settings_outlined,            'label': 'Settings'},
   ];
 
+  @override
+  void initState() {
+    super.initState();
+    _loadPendingApprovalsCount();
+  }
+
+  Future<void> _loadPendingApprovalsCount() async {
+    final auth = Provider.of<AuthProvider>(context, listen: false);
+    if (auth.token == null) return;
+
+    try {
+      final list = await ApiService.getPendingRestaurants(auth.token!);
+      if (!mounted) return;
+      setState(() => _pendingApprovalsCount = getPendingApprovalsCount(list));
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _pendingApprovalsCount = 0);
+    }
+  }
+
   Widget _buildPage() {
     switch (_selectedIndex) {
       case 0: return _OverviewPage(onNavigate: (i) => setState(() => _selectedIndex = i));
-      case 1: return const _ApprovalsPage();
+      case 1: return _ApprovalsPage(onPendingCountChanged: _loadPendingApprovalsCount);
       case 2: return const _RiderDeskPage();
       case 3: return const _UsersPage();
       case 4: return const _AdminSettingsPage();
@@ -148,8 +171,8 @@ class _AdminDashboardState extends State<AdminDashboard> {
                                 color: AppTheme.danger.withOpacity(0.15),
                                 borderRadius: BorderRadius.circular(10),
                               ),
-                              child: const Text('2',
-                                  style: TextStyle(
+                              child: Text(_pendingApprovalsCount.toString(),
+                                  style: const TextStyle(
                                       color: AppTheme.danger,
                                       fontSize: 10,
                                       fontWeight: FontWeight.w800)),
@@ -515,7 +538,9 @@ class _OverviewPageState extends State<_OverviewPage> {
 
 // ─── APPROVALS ────────────────────────────────────────────────────────────────
 class _ApprovalsPage extends StatefulWidget {
-  const _ApprovalsPage();
+  const _ApprovalsPage({required this.onPendingCountChanged});
+
+  final Future<void> Function() onPendingCountChanged;
 
   @override
   State<_ApprovalsPage> createState() => _ApprovalsPageState();
@@ -540,6 +565,7 @@ class _ApprovalsPageState extends State<_ApprovalsPage> {
     try {
       final list = await ApiService.getPendingRestaurants(auth.token!);
       setState(() => _pending = list);
+      await widget.onPendingCountChanged();
     } catch (e) {
       setState(() => _error = e.toString().replaceAll('Exception: ', ''));
     } finally {
@@ -553,6 +579,7 @@ class _ApprovalsPageState extends State<_ApprovalsPage> {
     try {
       await ApiService.approveRestaurant(auth.token!, id);
       setState(() => _pending.removeWhere((r) => r['id'] == id));
+      await widget.onPendingCountChanged();
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
         backgroundColor: AppTheme.success,
@@ -604,6 +631,7 @@ class _ApprovalsPageState extends State<_ApprovalsPage> {
     try {
       await ApiService.rejectRestaurant(auth.token!, id);
       setState(() => _pending.removeWhere((r) => r['id'] == id));
+      await widget.onPendingCountChanged();
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
         backgroundColor: AppTheme.danger,
