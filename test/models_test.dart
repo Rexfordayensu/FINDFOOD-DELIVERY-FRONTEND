@@ -20,6 +20,7 @@ void main() {
     });
 
     test('parses user records from backend payload', () {
+      var AppUser;
       final user = AppUser.fromJson({
         'id': 3,
         'name': 'Kofi',

@@ -79,7 +79,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
                             fontWeight: FontWeight.w800,
                             fontSize: 14,
                             letterSpacing: 0.3)),
-                    Text('Admin HQ',
+                    const Text('Admin HQ',
                         style: TextStyle(
                             color: AppTheme.accent,
                             fontSize: 11,
