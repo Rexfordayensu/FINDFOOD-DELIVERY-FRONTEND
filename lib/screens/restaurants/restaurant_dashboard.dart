@@ -110,7 +110,10 @@ class _RestaurantDashboardState extends State<RestaurantDashboard> {
     ];
 
     return Scaffold(
-      body: pages[_selectedIndex],
+  body: IndexedStack(
+    index: _selectedIndex,
+    children: pages,
+  ),
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
           color: AppColors.surface(context),

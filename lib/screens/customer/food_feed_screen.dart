@@ -70,6 +70,12 @@ final _demoRestaurants = [
 ];
 
 // ── Main screen ───────────────────────────────────────────────────────────────
+String getFullImageUrl(String? url) {
+  if (url == null || url.isEmpty) return '';
+  if (url.startsWith('http://') || url.startsWith('https://')) return url;
+  return 'http://127.0.0.1:8000$url';
+}
+
 class FoodFeedScreen extends StatefulWidget {
   const FoodFeedScreen({super.key});
   @override
@@ -783,7 +789,7 @@ class _RestaurantCardState extends State<_RestaurantCard>
                             children: [
                               // Real food image
                               Image.network(
-                                imageUrl,
+                                getFullImageUrl(imageUrl),
                                 fit: BoxFit.cover,
                                 loadingBuilder: (_, child, progress) {
                                   if (progress == null) return child;
