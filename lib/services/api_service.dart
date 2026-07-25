@@ -6,6 +6,15 @@ import '../models/models.dart';
 import 'package:flutter/material.dart';
 import 'package:http_parser/http_parser.dart'; // For MediaType
 
+// Custom exception for email not verified during login
+class EmailNotVerifiedException implements Exception {
+  final String message;
+  EmailNotVerifiedException(this.message);
+
+  @override
+  String toString() => message;
+}
+
 class ApiService {
   static const String baseUrl = 'http://127.0.0.1:8000';
 
@@ -44,6 +53,12 @@ class ApiService {
         },
     );
     final data = _decode(response);
+    
+    // Handle email not verified (403)
+    if (response.statusCode == 403) {
+      throw EmailNotVerifiedException(data['detail'] ?? 'Email not verified');
+    }
+    
     if (response.statusCode == 200) return data;
     throw Exception(data['detail'] ?? 'Login failed');
   }
@@ -497,6 +512,42 @@ class ApiService {
     final data = _decode(response);
     if (response.statusCode == 200) return data;
     throw Exception(data['detail'] ?? 'Failed to load analytics');
+  }
+
+  // ── EMAIL OTP VERIFICATION ────────────────────────────────────────────────
+
+  /// Verify email with OTP
+  static Future<Map<String, dynamic>> verifyEmail({
+    required String email,
+    required String otp,
+  }) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/auth/verify-email'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({
+        'email': email.trim(),
+        'otp': otp.trim(),
+      }),
+    );
+    final data = _decode(response);
+    if (response.statusCode == 200) return data;
+    throw Exception(data['detail'] ?? 'Verification failed');
+  }
+
+  /// Resend OTP to email
+  static Future<Map<String, dynamic>> resendOtp({
+    required String email,
+  }) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/auth/resend-otp'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({
+        'email': email.trim(),
+      }),
+    );
+    final data = _decode(response);
+    if (response.statusCode == 200) return data;
+    throw Exception(data['detail'] ?? 'Failed to resend OTP');
   }
 
   static Future<Map<String, dynamic>> getRiderAnalytics(String token) async {

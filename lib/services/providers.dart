@@ -21,13 +21,19 @@ class AuthProvider extends ChangeNotifier {
   int?    _userId;
   String? _role;
   String? _name;
+  String? _email;
   bool    _isLoggedIn = false;
+  bool    _isEmailVerified = false;
+  bool    _isRestaurantApproved = false;
 
   String? get token      => _token;
   int?    get userId     => _userId;
   String? get role       => _role;
   String? get name       => _name;
+  String? get email      => _email;
   bool    get isLoggedIn => _isLoggedIn;
+  bool    get isEmailVerified => _isEmailVerified;
+  bool    get isRestaurantApproved => _isRestaurantApproved;
 
   bool get isCustomer   => _role == 'customer';
   bool get isRestaurant => _role == 'restaurant';
@@ -35,15 +41,43 @@ class AuthProvider extends ChangeNotifier {
   bool get isAdmin      => _role == 'admin';
 
   void login({required String token, required int userId,
-      required String role, String? name}) {
-    _token = token; _userId = userId;
-    _role = role; _name = name; _isLoggedIn = true;
+      required String role, String? name, String? email, 
+      bool? isEmailVerified, bool? isRestaurantApproved}) {
+    _token = token; 
+    _userId = userId;
+    _role = role; 
+    _name = name;
+    _email = email;
+    _isLoggedIn = true;
+    _isEmailVerified = isEmailVerified ?? false;
+    _isRestaurantApproved = isRestaurantApproved ?? false;
+    notifyListeners();
+  }
+
+  void setEmailVerified(bool verified) {
+    _isEmailVerified = verified;
+    notifyListeners();
+  }
+
+  void setRestaurantApproved(bool approved) {
+    _isRestaurantApproved = approved;
+    notifyListeners();
+  }
+
+  void setEmail(String? emailAddr) {
+    _email = emailAddr;
     notifyListeners();
   }
 
   void logout() {
-    _token = null; _userId = null;
-    _role = null; _name = null; _isLoggedIn = false;
+    _token = null; 
+    _userId = null;
+    _role = null; 
+    _name = null;
+    _email = null;
+    _isLoggedIn = false;
+    _isEmailVerified = false;
+    _isRestaurantApproved = false;
     notifyListeners();
   }
 }

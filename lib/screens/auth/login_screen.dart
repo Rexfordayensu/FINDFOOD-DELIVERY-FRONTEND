@@ -1,3 +1,4 @@
+import 'package:findfood_app/screens/auth/email_verification_screen.dart';
 import 'package:findfood_app/screens/restaurants/restaurant_dashboard.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -81,6 +82,17 @@ class _LoginScreenState extends State<LoginScreen>
 
       // Show splash then route by role
       _goWithSplash(_destinationFor(data['role']));
+    } on EmailNotVerifiedException catch (e) {
+      if (!mounted) return;
+      // Navigate to email verification screen
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(
+          builder: (_) => EmailVerificationScreen(
+            email: _loginEmail.text.trim(),
+            role: '', // Role will be determined after verification
+          ),
+        ),
+      );
     } catch (e) {
       if (!mounted) return;
       _showError(e.toString().replaceAll('Exception: ', ''));
@@ -103,47 +115,43 @@ class _LoginScreenState extends State<LoginScreen>
     }
 
     setState(() => _isLoading = true);
+    
+    final registrationEmail = _signupEmail.text.trim();
+    final registrationRole = _signupRole;
+    
     try {
       // 3. Make the API call with all required fields
       await ApiService.register(
         name:     _signupName.text.trim(),
-        email:    _signupEmail.text.trim(),
+        email:    registrationEmail,
         password: _signupPass.text.trim(),
-        role:     _signupRole,
-        cuisineType: _signupRole == 'restaurant' ? cuisineController.text.trim() : '',
-        address: _signupRole == 'restaurant' ? addressController.text.trim() : '', 
+        role:     registrationRole,
+        cuisineType: registrationRole == 'restaurant' ? cuisineController.text.trim() : '',
+        address: registrationRole == 'restaurant' ? addressController.text.trim() : '', 
       );
       if (!mounted) return;
 
-      if (_signupRole == 'restaurant') {
-        _showVendorDialog();
-      } else {
-        _loginEmail.text = _signupEmail.text.trim();
-        _showSuccess('Account created! Signing you in...');
-        _signupName.clear();
-        _signupEmail.clear();
-        _signupPass.clear();
+      _showSuccess('Account created! Please verify your email.');
+      
+      // Clear form
+      _signupName.clear();
+      _signupEmail.clear();
+      _signupPass.clear();
+      cuisineController.clear();
+      addressController.clear();
 
-        // Auto login after register
-        final data = await ApiService.login(
-          _loginEmail.text.trim(),
-          _loginPassword.text.isNotEmpty
-              ? _loginPassword.text.trim()
-              : _signupPass.text.trim(),
-        );
-        if (!mounted) return;
-        Provider.of<AuthProvider>(context, listen: false).login(
-          token:  data['access_token'],
-          userId: data['user_id'],
-          role:   data['role'],
-        );
-        _goWithSplash(_destinationFor(data['role']));
-      }
+      // Navigate to email verification screen
+      if (!mounted) return;
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(
+          builder: (_) => EmailVerificationScreen(
+            email: registrationEmail,
+            role: registrationRole,
+          ),
+        ),
+      );
     } catch (e) {
       if (!mounted) return;
-      // If auto-login fails just switch to sign in tab
-      setState(() => _tabIndex = 0);
-      _tabController.animateTo(0);
       _showError(e.toString().replaceAll('Exception: ', ''));
     } finally {
       if (mounted) setState(() => _isLoading = false);
