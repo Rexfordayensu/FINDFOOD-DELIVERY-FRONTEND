@@ -4,7 +4,6 @@ import 'package:provider/provider.dart';
 import 'theme.dart';
 import 'services/providers.dart';
 import 'services/otp_provider.dart';
-import 'services/payment_callback_service.dart';
 import 'screens/splash_screen.dart';
 import 'screens/customer/food_feed_screen.dart';
 
@@ -49,20 +48,8 @@ class _FindFoodAppState extends State<FindFoodApp> {
   }
 
   void _handleDeepLink() {
-    final uri = Uri.parse('findfood://payment-callback?reference=PSK-TEST');
-    final reference = extractPaymentReference(uri);
-    if (reference == null || !mounted) return;
-
-    verifyPaymentAndRedirect(
-      context: context,
-      reference: reference,
-      onSuccess: () {
-        if (!mounted) return;
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (_) => const FoodFeedScreen()),
-        );
-      },
-    );
+    // Paystack redirects are handled by polling the backend payment verification
+    // flow from the cart screen after the browser opens.
   }
 
   @override

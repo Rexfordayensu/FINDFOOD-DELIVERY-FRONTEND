@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../screens/customer/payment_success_screen.dart';
+import '../models/models.dart';
+import '../screens/customer/order_tracking_screen.dart';
 import 'api_service.dart';
 import 'providers.dart';
 
@@ -28,12 +29,24 @@ Future<void> verifyPaymentAndRedirect({
     final status = verification['status']?.toString().toLowerCase();
     if (status == 'success') {
       if (!context.mounted) return;
+      final latestOrders = await ApiService.getMyOrders(auth.token!);
+      final latestOrder = latestOrders.isNotEmpty ? latestOrders.first : null;
+
+      if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Payment verified successfully.')),
       );
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => const PaymentSuccessScreen()),
-      );
+
+      if (latestOrder != null) {
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (_) => OrderTrackingScreen(order: latestOrder)),
+        );
+      } else {
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (_) => const Scaffold(body: Center(child: Text('No order found')))),
+        );
+      }
+
       onSuccess();
       return;
     }

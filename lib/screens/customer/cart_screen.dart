@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../theme.dart';
@@ -19,11 +20,55 @@ class CartScreen extends StatefulWidget {
 class _CartScreenState extends State<CartScreen> {
   String _selectedProvider = 'paystack';
   bool _isLoading = false;
+  Timer? _paymentVerificationTimer;
+  bool _hasNavigatedToTracking = false;
 
   final List<PaymentProviderOption> _providers = const [
     PaymentProviderOption(value: 'paystack', label: 'Paystack'),
     PaymentProviderOption(value: 'mtn_momo', label: 'MTN Mobile Money'),
   ];
+
+  void _startPaymentVerification({required String reference, required Order order}) {
+    if (_paymentVerificationTimer != null) return;
+
+    _hasNavigatedToTracking = false;
+    _paymentVerificationTimer = Timer.periodic(const Duration(seconds: 5), (_) async {
+      if (!mounted || _hasNavigatedToTracking) return;
+
+      final auth = Provider.of<AuthProvider>(context, listen: false);
+      if (!auth.isLoggedIn || auth.token == null) return;
+
+      try {
+        final verification = await ApiService.verifyPayment(
+          token: auth.token!,
+          reference: reference,
+        );
+
+        final status = verification['status']?.toString().toLowerCase();
+        if (status == 'success') {
+          _paymentVerificationTimer?.cancel();
+          _paymentVerificationTimer = null;
+          if (!mounted) return;
+
+          setState(() => _hasNavigatedToTracking = true);
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(builder: (_) => OrderTrackingScreen(order: order)),
+          );
+        }
+      } catch (_) {
+        // Keep polling until the backend confirms payment success.
+      }
+    });
+
+    Future.delayed(const Duration(minutes: 2), () {
+      if (!mounted || _hasNavigatedToTracking) return;
+      _paymentVerificationTimer?.cancel();
+      _paymentVerificationTimer = null;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Payment verification timed out. Please check your order status.')),
+      );
+    });
+  }
 
   Future<void> _placeOrderAndInitializePayment() async {
     final auth = Provider.of<AuthProvider>(context, listen: false);
@@ -73,6 +118,7 @@ class _CartScreenState extends State<CartScreen> {
         await launchUrlString(authorizationUrl, mode: LaunchMode.externalApplication);
 
         if (!mounted) return;
+        _startPaymentVerification(reference: reference, order: order);
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
           content: Text('Opening checkout for reference $reference...'),
         ));
