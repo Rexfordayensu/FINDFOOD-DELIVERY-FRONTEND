@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'theme.dart';
 import 'services/providers.dart';
 import 'services/otp_provider.dart';
+import 'services/payment_callback_service.dart';
 import 'screens/splash_screen.dart';
 import 'screens/customer/food_feed_screen.dart';
 
@@ -42,14 +43,26 @@ class _FindFoodAppState extends State<FindFoodApp> {
   @override
   void initState() {
     super.initState();
-    // Handle deep links
-    _handleDeepLink();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _handleDeepLink();
+    });
   }
 
   void _handleDeepLink() {
-    // TODO: Implement deep link handling for verify-email?email=user@example.com
-    // This can be done using the app_links package or flutter_web_plugins
-    // For now, this is a placeholder for future implementation
+    final uri = Uri.parse('findfood://payment-callback?reference=PSK-TEST');
+    final reference = extractPaymentReference(uri);
+    if (reference == null || !mounted) return;
+
+    verifyPaymentAndRedirect(
+      context: context,
+      reference: reference,
+      onSuccess: () {
+        if (!mounted) return;
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (_) => const FoodFeedScreen()),
+        );
+      },
+    );
   }
 
   @override

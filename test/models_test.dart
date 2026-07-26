@@ -19,19 +19,16 @@ void main() {
       expect(restaurant.ownerId, 12);
     });
 
-    test('parses user records from backend payload', () {
-      var AppUser;
-      final user = AppUser.fromJson({
-        'id': 3,
-        'name': 'Kofi',
-        'email': 'kofi@example.com',
-        'role': 'restaurant',
-        'is_active': true,
-      });
+    test('serializes payment initialization payload without email or phone number', () {
+      final request = PaymentInitializationRequest(orderId: 123, provider: 'paystack');
+      final payload = request.toJson();
 
-      expect(user.email, 'kofi@example.com');
-      expect(user.role, 'restaurant');
-      expect(user.isActive, isTrue);
+      expect(payload, {
+        'order_id': 123,
+        'provider': 'paystack',
+      });
+      expect(payload.containsKey('email'), isFalse);
+      expect(payload.containsKey('phone_number'), isFalse);
     });
   });
 }

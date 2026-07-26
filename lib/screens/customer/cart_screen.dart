@@ -4,8 +4,10 @@ import '../../theme.dart';
 import '../../widgets/widgets.dart';
 import '../../services/api_service.dart';
 import '../../services/providers.dart';
+import '../../models/models.dart';
 import '../auth/login_screen.dart';
 import 'order_tracking_screen.dart';
+import 'package:url_launcher/url_launcher_string.dart';
 
 class CartScreen extends StatefulWidget {
   const CartScreen({super.key});
@@ -15,23 +17,15 @@ class CartScreen extends StatefulWidget {
 }
 
 class _CartScreenState extends State<CartScreen> {
-  String _provider    = 'mtn';
-  final _phoneCtrl    = TextEditingController();
-  bool   _isLoading   = false;
+  String _selectedProvider = 'paystack';
+  bool _isLoading = false;
 
-  final _providers = [
-    {'id': 'mtn',       'label': 'MTN MoMo'},
-    {'id': 'telecel',   'label': 'Telecel'},
-    {'id': 'airteltigo','label': 'AirtelTigo'},
+  final List<PaymentProviderOption> _providers = const [
+    PaymentProviderOption(value: 'paystack', label: 'Paystack'),
+    PaymentProviderOption(value: 'mtn_momo', label: 'MTN Mobile Money'),
   ];
 
-  @override
-  void dispose() {
-    _phoneCtrl.dispose();
-    super.dispose();
-  }
-
-  Future<void> _checkout() async {
+  Future<void> _placeOrderAndInitializePayment() async {
     final auth = Provider.of<AuthProvider>(context, listen: false);
     final cart = Provider.of<CartProvider>(context, listen: false);
 
@@ -43,10 +37,10 @@ class _CartScreenState extends State<CartScreen> {
       return;
     }
 
-    if (_phoneCtrl.text.trim().isEmpty) {
+    if (cart.restaurantId == null || cart.orderPayload.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
         backgroundColor: AppTheme.danger,
-        content: Text('Enter your MoMo number',
+        content: Text('Your cart is empty. Please add items before checkout.',
             style: TextStyle(color: Colors.white)),
       ));
       return;
@@ -54,36 +48,46 @@ class _CartScreenState extends State<CartScreen> {
 
     setState(() => _isLoading = true);
     try {
-      // 1. Place order
       final order = await ApiService.placeOrder(
         token: auth.token!,
         restaurantId: cart.restaurantId!,
         items: cart.orderPayload,
       );
 
-      // 2. Initiate payment
-      await ApiService.initiatePayment(
+      final init = await ApiService.initializePayment(
         token: auth.token!,
         orderId: order.id,
-        provider: _provider,
-        phoneNumber: _phoneCtrl.text.trim(),
+        provider: _selectedProvider,
       );
 
       if (!mounted) return;
-      cart.clearCart();
 
-      // 3. Navigate to tracking
-      Navigator.pushAndRemoveUntil(
-        context,
-        MaterialPageRoute(builder: (_) => OrderTrackingScreen(order: order)),
-        (r) => r.isFirst,
-      );
+      if (_selectedProvider == 'paystack') {
+        final authorizationUrl = init['authorization_url'] as String?;
+        final reference = init['reference'] as String?;
+
+        if (authorizationUrl == null || reference == null) {
+          throw Exception('Invalid payment initialization response.');
+        }
+
+        await launchUrlString(authorizationUrl, mode: LaunchMode.externalApplication);
+
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Opening checkout for reference $reference...'),
+        ));
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('MTN Mobile Money flow is being prepared. Please try again later.'),
+        ));
+      }
     } catch (e) {
       if (!mounted) return;
+      final errorMsg = e.toString().replaceAll('Exception: ', '');
+      debugPrint('Payment initialization error: $errorMsg | Provider: $_selectedProvider');
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
         backgroundColor: AppTheme.danger,
-        content: Text(e.toString().replaceAll('Exception: ', ''),
-            style: const TextStyle(color: Colors.white)),
+        content: Text(errorMsg, style: const TextStyle(color: Colors.white)),
       ));
     } finally {
       if (mounted) setState(() => _isLoading = false);
@@ -192,22 +196,18 @@ class _CartScreenState extends State<CartScreen> {
             ),
           ),
 
-          // ── MoMo payment ──────────────────────────────────────
           const SizedBox(height: 24),
-          const Text('Pay with Mobile Money', style: AppText.heading),
+          const Text('Payment Method', style: AppText.heading),
           const SizedBox(height: 14),
-
-          // Provider selector
           Row(
-            children: _providers.map((p) {
-              final active = _provider == p['id'];
+            children: _providers.map((provider) {
+              final active = _selectedProvider == provider.value;
               return Expanded(
                 child: GestureDetector(
-                  onTap: () => setState(() => _provider = p['id']!),
+                  onTap: () => setState(() => _selectedProvider = provider.value),
                   child: AnimatedContainer(
                     duration: const Duration(milliseconds: 200),
-                    margin: EdgeInsets.only(
-                        right: p == _providers.last ? 0 : 8),
+                    margin: EdgeInsets.only(right: provider == _providers.last ? 0 : 8),
                     padding: const EdgeInsets.symmetric(vertical: 12),
                     decoration: BoxDecoration(
                       color: active ? AppTheme.accentDim : AppTheme.card,
@@ -218,7 +218,7 @@ class _CartScreenState extends State<CartScreen> {
                       ),
                     ),
                     child: Center(
-                      child: Text(p['label']!,
+                      child: Text(provider.label,
                           style: TextStyle(
                             color: active ? AppTheme.accent : AppTheme.textSecond,
                             fontWeight: active ? FontWeight.w700 : FontWeight.w400,
@@ -230,14 +230,6 @@ class _CartScreenState extends State<CartScreen> {
               );
             }).toList(),
           ),
-          const SizedBox(height: 12),
-          AppTextField(
-            controller: _phoneCtrl,
-            hint: 'MoMo number (e.g. 055 000 0000)',
-            prefixIcon: Icons.phone_outlined,
-            keyboardType: TextInputType.phone,
-          ),
-
           const SizedBox(height: 24),
           if (!auth.isLoggedIn)
             const Padding(
@@ -253,7 +245,7 @@ class _CartScreenState extends State<CartScreen> {
                 ? 'Place order · ${cart.displayTotal}'
                 : 'Sign in to order',
             isLoading: _isLoading,
-            onPressed: _checkout,
+            onPressed: _placeOrderAndInitializePayment,
           ),
           const SizedBox(height: 32),
         ],
