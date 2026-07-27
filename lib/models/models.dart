@@ -128,6 +128,28 @@ class CartItem {
   String get displaySubtotal => 'GH₵ ${(subtotal / 100).toStringAsFixed(2)}';
 }
 
+class PaymentInitializationRequest {
+  final int orderId;
+  final String provider;
+
+  PaymentInitializationRequest({
+    required this.orderId,
+    required this.provider,
+  });
+
+  Map<String, dynamic> toJson() => {
+        'order_id': orderId,
+        'provider': provider,
+      };
+}
+
+class PaymentProviderOption {
+  final String value;
+  final String label;
+
+  const PaymentProviderOption({required this.value, required this.label});
+}
+
 // ─── CHAT MESSAGE ─────────────────────────────────────────────────────────────
 class ChatMessage {
   final int id;

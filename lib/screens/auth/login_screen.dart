@@ -1,3 +1,4 @@
+import 'package:findfood_app/screens/auth/email_verification_screen.dart';
 import 'package:findfood_app/screens/restaurants/restaurant_dashboard.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -35,6 +36,8 @@ class _LoginScreenState extends State<LoginScreen>
   bool _obscureLogin  = true;
   bool _obscureSignup = true;
   bool _isLoading     = false;
+  bool _isRequestingOtp = false;
+  bool _useOtpLogin = false;
   int  _tabIndex      = 0;
   String _signupRole  = 'customer';
   
@@ -77,15 +80,56 @@ class _LoginScreenState extends State<LoginScreen>
         token:  data['access_token'],
         userId: data['user_id'],
         role:   data['role'],
+        email:  data['email']?.toString() ?? _loginEmail.text.trim(),
       );
 
       // Show splash then route by role
       _goWithSplash(_destinationFor(data['role']));
+    } on EmailNotVerifiedException catch (e) {
+      if (!mounted) return;
+      // Navigate to email verification screen
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(
+          builder: (_) => EmailVerificationScreen(
+            email: _loginEmail.text.trim(),
+            role: '', // Role will be determined after verification
+          ),
+        ),
+      );
     } catch (e) {
       if (!mounted) return;
       _showError(e.toString().replaceAll('Exception: ', ''));
     } finally {
       if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _requestOtp() async {
+    final email = _loginEmail.text.trim();
+    if (email.isEmpty || !email.contains('@')) {
+      _showError('Enter a valid email');
+      return;
+    }
+
+    setState(() => _isRequestingOtp = true);
+    try {
+      await ApiService.requestLoginOtp(email: email);
+      if (!mounted) return;
+
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(
+          builder: (_) => EmailVerificationScreen(
+            email: email,
+            role: '',
+            mode: VerificationMode.login,
+          ),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      _showError(e.toString().replaceAll('Exception: ', ''));
+    } finally {
+      if (mounted) setState(() => _isRequestingOtp = false);
     }
   }
 
@@ -103,47 +147,43 @@ class _LoginScreenState extends State<LoginScreen>
     }
 
     setState(() => _isLoading = true);
+    
+    final registrationEmail = _signupEmail.text.trim();
+    final registrationRole = _signupRole;
+    
     try {
       // 3. Make the API call with all required fields
       await ApiService.register(
         name:     _signupName.text.trim(),
-        email:    _signupEmail.text.trim(),
+        email:    registrationEmail,
         password: _signupPass.text.trim(),
-        role:     _signupRole,
-        cuisineType: _signupRole == 'restaurant' ? cuisineController.text.trim() : '',
-        address: _signupRole == 'restaurant' ? addressController.text.trim() : '', 
+        role:     registrationRole,
+        cuisineType: registrationRole == 'restaurant' ? cuisineController.text.trim() : '',
+        address: registrationRole == 'restaurant' ? addressController.text.trim() : '', 
       );
       if (!mounted) return;
 
-      if (_signupRole == 'restaurant') {
-        _showVendorDialog();
-      } else {
-        _loginEmail.text = _signupEmail.text.trim();
-        _showSuccess('Account created! Signing you in...');
-        _signupName.clear();
-        _signupEmail.clear();
-        _signupPass.clear();
+      _showSuccess('Account created! Please verify your email.');
+      
+      // Clear form
+      _signupName.clear();
+      _signupEmail.clear();
+      _signupPass.clear();
+      cuisineController.clear();
+      addressController.clear();
 
-        // Auto login after register
-        final data = await ApiService.login(
-          _loginEmail.text.trim(),
-          _loginPassword.text.isNotEmpty
-              ? _loginPassword.text.trim()
-              : _signupPass.text.trim(),
-        );
-        if (!mounted) return;
-        Provider.of<AuthProvider>(context, listen: false).login(
-          token:  data['access_token'],
-          userId: data['user_id'],
-          role:   data['role'],
-        );
-        _goWithSplash(_destinationFor(data['role']));
-      }
+      // Navigate to email verification screen
+      if (!mounted) return;
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(
+          builder: (_) => EmailVerificationScreen(
+            email: registrationEmail,
+            role: registrationRole,
+          ),
+        ),
+      );
     } catch (e) {
       if (!mounted) return;
-      // If auto-login fails just switch to sign in tab
-      setState(() => _tabIndex = 0);
-      _tabController.animateTo(0);
       _showError(e.toString().replaceAll('Exception: ', ''));
     } finally {
       if (mounted) setState(() => _isLoading = false);
@@ -436,6 +476,21 @@ class _LoginScreenState extends State<LoginScreen>
     );
   }
 
+  void _showComingSoon(String feature) {
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        backgroundColor: AppColors.card(context),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Text('$feature', style: TextStyle(color: AppColors.textPrimary(context))),
+        content: Text('This feature is coming soon.', style: TextStyle(color: AppColors.textSecondary(context))),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('OK')),
+        ],
+      ),
+    );
+  }
+
   void _showVendorDialog() {
     showDialog(
       context: context,
@@ -599,6 +654,7 @@ class _LoginScreenState extends State<LoginScreen>
                       ),
                     ),
                   ]),
+
                 ],
               ),
             ),
@@ -606,18 +662,7 @@ class _LoginScreenState extends State<LoginScreen>
         ),
       ),
     );
-  }
 
-  void _showComingSoon(String label) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      backgroundColor: AppColors.surface(context),
-      behavior: SnackBarBehavior.floating,
-      shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-          side: BorderSide(color: AppColors.border(context))),
-      content: Text('$label coming soon!',
-          style: TextStyle(color: AppColors.textPrimary(context))),
-    ));
   }
 
   Widget _tabBtn(String label, int index, Color surf, Color textSec) {
@@ -671,40 +716,66 @@ class _LoginScreenState extends State<LoginScreen>
             },
           ),
           const SizedBox(height: 14),
-          AppTextField(
-            controller: _loginPassword,
-            hint: 'Password',
-            prefixIcon: Icons.lock_outline_rounded,
-            obscure: _obscureLogin,
-            suffixIcon: IconButton(
-              icon: Icon(
-                _obscureLogin ? Icons.visibility_off : Icons.visibility,
-                color: textHint, size: 20,
+          if (!_useOtpLogin) ...[
+            AppTextField(
+              controller: _loginPassword,
+              hint: 'Password',
+              prefixIcon: Icons.lock_outline_rounded,
+              obscure: _obscureLogin,
+              suffixIcon: IconButton(
+                icon: Icon(
+                  _obscureLogin ? Icons.visibility_off : Icons.visibility,
+                  color: textHint, size: 20,
+                ),
+                onPressed: () => setState(() => _obscureLogin = !_obscureLogin),
               ),
-              onPressed: () => setState(() => _obscureLogin = !_obscureLogin),
+              validator: (v) =>
+                 (v == null || v.length < 8) ? 'Min 8 characters' : null,
             ),
-            validator: (v) =>
-               (v == null || v.length < 8) ? 'Min 8 characters' : null,
-          ),
+            const SizedBox(height: 8),
+            Align(
+              alignment: Alignment.centerRight,
+              child: TextButton(
+                onPressed: _showForgotPassword,
+                child: const Text('Forgot password?',
+                    style: TextStyle(
+                        color: AppTheme.accent,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600)),
+              ),
+            ),
+          ] else ...[
+            Align(
+              alignment: Alignment.centerRight,
+              child: TextButton(
+                onPressed: () => setState(() => _useOtpLogin = false),
+                child: const Text('Use password instead',
+                    style: TextStyle(
+                        color: AppTheme.accent,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600)),
+              ),
+            ),
+            const SizedBox(height: 8),
+          ],
+
           const SizedBox(height: 8),
-          Align(
-            alignment: Alignment.centerRight,
-            child: TextButton(
-              onPressed: _showForgotPassword,
-              child: const Text('Forgot password?',
+          PrimaryButton(
+            label: _useOtpLogin ? 'Continue' : 'Sign in',
+            isLoading: _useOtpLogin ? _isRequestingOtp : _isLoading,
+            onPressed: _useOtpLogin ? _requestOtp : _login,
+          ),
+          const SizedBox(height: 12),
+          if (!_useOtpLogin)
+            TextButton(
+              onPressed: () => setState(() => _useOtpLogin = true),
+              child: const Text('Login using OTP',
                   style: TextStyle(
                       color: AppTheme.accent,
                       fontSize: 13,
-                      fontWeight: FontWeight.w600)),
+                      fontWeight: FontWeight.w700)),
             ),
-          ),
           const SizedBox(height: 8),
-          PrimaryButton(
-            label: 'Sign in',
-            isLoading: _isLoading,
-            onPressed: _login,
-          ),
-          const SizedBox(height: 16),
           Row(mainAxisAlignment: MainAxisAlignment.center, children: [
             Text("Don't have an account? ",
                 style: TextStyle(color: AppColors.textSecondary(context),
@@ -769,31 +840,31 @@ class _LoginScreenState extends State<LoginScreen>
             },
           ),
           const SizedBox(height: 14),
-if (_signupRole == 'restaurant') ...[
-  AppTextField(
-    controller: _cuisineController, // Or your local cuisine text controller
-    hint: 'Cuisine Type e.g. local, Italian, Chinese, Fast Food',
-    prefixIcon: Icons.restaurant_menu_outlined,
-    validator: (v) {
-      if (_signupRole == 'restaurant' && (v == null || v.trim().isEmpty)) {
-        return 'Cuisine type is required';
-      }
-      return null;
-    },
-  ),
-  const SizedBox(height: 14),
-  AppTextField(
-    controller: _addressController, // Or your local address text controller
-    hint: 'Restaurant Address',
-    prefixIcon: Icons.location_on_outlined,
-    validator: (v) {
-      if (_signupRole == 'restaurant' && (v == null || v.trim().isEmpty)) {
-        return 'Restaurant address is required';
-      }
-      return null;
-    },
-  ),
-],
+          if (_signupRole == 'restaurant') ...[
+            AppTextField(
+              controller: _cuisineController,
+              hint: 'Cuisine Type e.g. local, Italian, Chinese, Fast Food',
+              prefixIcon: Icons.restaurant_menu_outlined,
+              validator: (v) {
+                if (_signupRole == 'restaurant' && (v == null || v.trim().isEmpty)) {
+                  return 'Cuisine type is required';
+                }
+                return null;
+              },
+            ),
+            const SizedBox(height: 14),
+            AppTextField(
+              controller: _addressController,
+              hint: 'Restaurant Address',
+              prefixIcon: Icons.location_on_outlined,
+              validator: (v) {
+                if (_signupRole == 'restaurant' && (v == null || v.trim().isEmpty)) {
+                  return 'Restaurant address is required';
+                }
+                return null;
+              },
+            ),
+          ],
           const SizedBox(height: 14),
           AppTextField(
             controller: _signupPass,

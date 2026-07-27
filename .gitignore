@@ -43,3 +43,7 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+IMPLEMENTATION_COMPLETE.md
+IMPLEMENTATION_GUIDE.md
+QUICK_REFERENCE.md

@@ -6,6 +6,15 @@ import '../models/models.dart';
 import 'package:flutter/material.dart';
 import 'package:http_parser/http_parser.dart'; // For MediaType
 
+// Custom exception for email not verified during login
+class EmailNotVerifiedException implements Exception {
+  final String message;
+  EmailNotVerifiedException(this.message);
+
+  @override
+  String toString() => message;
+}
+
 class ApiService {
   static const String baseUrl = 'http://127.0.0.1:8000';
 
@@ -44,6 +53,18 @@ class ApiService {
         },
     );
     final data = _decode(response);
+
+    final isEmailUnverified = response.statusCode == 403 ||
+        data['is_verified'] == false ||
+        data['email_verified'] == false ||
+        data['is_email_verified'] == false ||
+        data['requires_verification'] == true ||
+        data['detail']?.toString().toLowerCase().contains('verify') == true;
+
+    if (isEmailUnverified) {
+      throw EmailNotVerifiedException(data['detail'] ?? 'Email not verified');
+    }
+
     if (response.statusCode == 200) return data;
     throw Exception(data['detail'] ?? 'Login failed');
   }
@@ -315,27 +336,62 @@ class ApiService {
 
   // ── PAYMENTS ──────────────────────────────────────────────────────────────
 
-  static Future<Map<String, dynamic>> initiatePayment({
+  static Future<Map<String, dynamic>> initializePayment({
     required String token,
     required int orderId,
     required String provider,
-    required String phoneNumber,
   }) async {
+    final request = PaymentInitializationRequest(
+      orderId: orderId,
+      provider: provider,
+    );
+
     final response = await http.post(
-      Uri.parse('$baseUrl/payments/initiate'),
+      Uri.parse('$baseUrl/payments/initialize'),
       headers: {
         'Content-Type': 'application/json',
         'Authorization': 'Bearer $token',
       },
-      body: jsonEncode({
-        'order_id': orderId,
-        'provider': provider,
-        'phone_number': phoneNumber,
-      }),
+      body: jsonEncode(request.toJson()),
+    );
+
+    final data = _decode(response);
+    if (response.statusCode == 200 || response.statusCode == 201) return data;
+
+    if (response.statusCode == 400) {
+      throw Exception('Please select a valid payment method.');
+    }
+    if (response.statusCode == 401) {
+      throw Exception('Your session has expired. Please sign in again.');
+    }
+    if (response.statusCode == 403) {
+      throw Exception('You are not allowed to initialize this payment.');
+    }
+    if (response.statusCode == 404) {
+      throw Exception('Order not found.');
+    }
+    if (response.statusCode == 422) {
+      throw Exception('The selected payment method is not available.');
+    }
+    if (response.statusCode >= 500) {
+      throw Exception('Payment service is currently unavailable. Please try again shortly.');
+    }
+
+    throw Exception(data['detail'] ?? 'Failed to initialize payment');
+  }
+
+  /// Verify a payment by reference via backend
+  static Future<Map<String, dynamic>> verifyPayment({
+    required String token,
+    required String reference,
+  }) async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/payments/${Uri.encodeComponent(reference)}/verify'),
+      headers: {'Authorization': 'Bearer $token'},
     );
     final data = _decode(response);
-    if (response.statusCode == 201) return data;
-    throw Exception(data['detail'] ?? 'Payment failed');
+    if (response.statusCode == 200) return data;
+    throw Exception(data['detail'] ?? 'Failed to verify payment');
   }
 
   // ── ADMIN ─────────────────────────────────────────────────────────────────
@@ -497,6 +553,91 @@ class ApiService {
     final data = _decode(response);
     if (response.statusCode == 200) return data;
     throw Exception(data['detail'] ?? 'Failed to load analytics');
+  }
+
+  // ── EMAIL OTP VERIFICATION ────────────────────────────────────────────────
+
+  /// Verify email with OTP
+  static Future<Map<String, dynamic>> verifyEmail({
+    required String email,
+    required String otp,
+  }) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/auth/verify-email'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({
+        'email': email.trim(),
+        'otp': otp.trim(),
+      }),
+    );
+    final data = _decode(response);
+    if (response.statusCode == 200) return data;
+    throw Exception(data['detail'] ?? 'Verification failed');
+  }
+
+  /// Resend OTP to email
+  static Future<Map<String, dynamic>> resendOtp({
+    required String email,
+  }) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/auth/resend-otp'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({
+        'email': email.trim(),
+      }),
+    );
+    final data = _decode(response);
+    if (response.statusCode == 200) return data;
+    throw Exception(data['detail'] ?? 'Failed to resend OTP');
+  }
+
+  // ── LOGIN OTP (Passwordless) ─────────────────────────────────────────────
+
+  /// Request a login OTP for an email (passwordless login start)
+  static Future<void> requestLoginOtp({
+    required String email,
+  }) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/auth/login/request-otp'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({'email': email.trim()}),
+    );
+
+    if (response.statusCode == 200) return;
+    final data = _decode(response);
+    throw Exception(data['detail'] ?? 'Failed to request login OTP');
+  }
+
+  /// Verify login OTP and return the same login payload as password login
+  static Future<Map<String, dynamic>> verifyLoginOtp({
+    required String email,
+    required String otp,
+  }) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/auth/login/verify-otp'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({
+        'email': email.trim(),
+        'otp': otp.trim(),
+      }),
+    );
+    final data = _decode(response);
+    if (response.statusCode == 200) return data;
+    throw Exception(data['detail'] ?? 'Login verification failed');
+  }
+
+  /// Resend login OTP
+  static Future<Map<String, dynamic>> resendLoginOtp({
+    required String email,
+  }) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/auth/login/resend-otp'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({'email': email.trim()}),
+    );
+    final data = _decode(response);
+    if (response.statusCode == 200) return data;
+    throw Exception(data['detail'] ?? 'Failed to resend login OTP');
   }
 
   static Future<Map<String, dynamic>> getRiderAnalytics(String token) async {
