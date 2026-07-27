@@ -1,3 +1,4 @@
+import 'package:findfood_app/screens/customer/food_feed_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../theme.dart';
@@ -19,13 +20,6 @@ const _cuisineImages = {
   'default':   'https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=800&q=80',
 };
 
-String _imageFor(String cuisine) {
-  final c = cuisine.toLowerCase();
-  for (final k in _cuisineImages.keys) {
-    if (c.contains(k)) return _cuisineImages[k]!;
-  }
-  return _cuisineImages['default']!;
-}
 
 // Food images per item name keywords
 const _foodImages = {
@@ -44,11 +38,35 @@ const _foodImages = {
   'default':  'https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=400&q=80',
 };
 
-String _foodImageFor(String name) {
-  final n = name.toLowerCase();
+String _foodImageFor(dynamic item) {
+  String itemName = '';
+  String? imageUrl;
+
+  if (item is String) {
+    itemName = item;
+  } else if (item is Map) {
+    imageUrl = item['image_url']?.toString() ?? item['image']?.toString();
+    itemName = item['name']?.toString() ?? '';
+  } else if (item != null) {
+    try {
+      imageUrl = (item as dynamic).imageUrl?.toString();
+      itemName = (item as dynamic).name?.toString() ?? '';
+    } catch (_) {}
+  }
+
+  // 1. If real backend image exists, use it
+  if (imageUrl != null && imageUrl.trim().isNotEmpty) {
+    return imageUrl.startsWith('http') 
+        ? imageUrl 
+        : '${ApiService.baseUrl}$imageUrl';
+  }
+
+  // 2. Fallback to keyword matching
+  final n = itemName.toLowerCase();
   for (final k in _foodImages.keys) {
     if (n.contains(k)) return _foodImages[k]!;
   }
+
   return _foodImages['default']!;
 }
 
@@ -275,14 +293,18 @@ class _MenuDetailScreenState extends State<MenuDetailScreen> {
                 fit: StackFit.expand,
                 children: [
                   Image.network(
-                    _imageFor(r.cuisineType),
-                    fit: BoxFit.cover,
-                    errorBuilder: (_, __, ___) => Container(
-                      color: AppColors.surface(context),
-                      child: const Icon(Icons.restaurant_rounded,
-                          size: 64, color: AppTheme.accent),
-                    ),
-                  ),
+  _foodImageFor(r), // Pass the whole restaurant object 'r' instead of 'r.cuisineType'
+  fit: BoxFit.cover,
+  key: ValueKey(r.id), // Use restaurant ID as key to force reload on change
+  errorBuilder: (_, __, ___) => Container(
+    color: AppColors.surface(context),
+    child: const Icon(
+      Icons.restaurant_rounded,
+      size: 64,
+      color: AppTheme.accent,
+    ),
+  ),
+),
                   // Gradient overlay
                   DecoratedBox(
                     decoration: BoxDecoration(

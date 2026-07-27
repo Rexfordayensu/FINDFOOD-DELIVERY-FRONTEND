@@ -7,6 +7,7 @@ class Restaurant {
   final bool isActive;
   final bool isApproved;
   final int ownerId;
+  final String? imageUrl;
 
   Restaurant({
     required this.id,
@@ -17,6 +18,7 @@ class Restaurant {
     required this.isActive,
     required this.isApproved,
     required this.ownerId,
+    this.imageUrl, 
   });
 
   factory Restaurant.fromJson(Map<String, dynamic> json) => Restaurant(
@@ -28,6 +30,7 @@ class Restaurant {
         isActive: json['is_active'] ?? true,
         isApproved: json['is_approved'] ?? false,
         ownerId: json['owner_id'] ?? 0,
+        imageUrl: json['image_url'],
       );
 }
 
