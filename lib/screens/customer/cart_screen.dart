@@ -77,7 +77,12 @@ class _CartScreenState extends State<CartScreen> {
     if (!auth.isLoggedIn) {
       Navigator.push(
         context,
-        MaterialPageRoute(builder: (_) => const LoginScreen()),
+        MaterialPageRoute(
+          builder: (_) => const LoginScreen(
+            returnRoute: '/cart',
+            pendingAction: 'continue_checkout',
+          ),
+        ),
       );
       return;
     }

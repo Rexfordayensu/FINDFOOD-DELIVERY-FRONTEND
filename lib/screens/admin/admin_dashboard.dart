@@ -136,12 +136,12 @@ class _AdminDashboardState extends State<AdminDashboard> {
                           horizontal: 14, vertical: 11),
                       decoration: BoxDecoration(
                         color: active
-                            ? AppTheme.accent.withOpacity(0.12)
+                            ? AppTheme.accent.withValues(alpha: 0.12)
                             : Colors.transparent,
                         borderRadius: BorderRadius.circular(10),
                         border: active
                             ? Border.all(
-                                color: AppTheme.accent.withOpacity(0.25))
+                                color: AppTheme.accent.withValues(alpha: 0.25))
                             : null,
                       ),
                       child: Row(
@@ -168,7 +168,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
                               padding: const EdgeInsets.symmetric(
                                   horizontal: 7, vertical: 2),
                               decoration: BoxDecoration(
-                                color: AppTheme.danger.withOpacity(0.15),
+                                color: AppTheme.danger.withValues(alpha: 0.15),
                                 borderRadius: BorderRadius.circular(10),
                               ),
                               child: Text(_pendingApprovalsCount.toString(),
@@ -242,17 +242,17 @@ class _AdminDashboardState extends State<AdminDashboard> {
                     padding: const EdgeInsets.symmetric(
                         horizontal: 14, vertical: 11),
                     decoration: BoxDecoration(
-                      color: AppTheme.danger.withOpacity(0.08),
+                      color: AppTheme.danger.withValues(alpha: 0.08),
                       borderRadius: BorderRadius.circular(10),
                       border: Border.all(
-                          color: AppTheme.danger.withOpacity(0.2)),
+                          color: AppTheme.danger.withValues(alpha: 0.2)),
                     ),
-                    child: Row(
+                    child: const Row(
                       children: [
-                        const Icon(Icons.logout_rounded,
+                        Icon(Icons.logout_rounded,
                             size: 17, color: AppTheme.danger),
-                        const SizedBox(width: 10),
-                        const Text('Sign out',
+                        SizedBox(width: 10),
+                        Text('Sign out',
                             style: TextStyle(
                                 color: AppTheme.danger,
                                 fontSize: 13,
@@ -376,10 +376,10 @@ class _OverviewPageState extends State<_OverviewPage> {
                     padding: const EdgeInsets.symmetric(
                         horizontal: 14, vertical: 8),
                     decoration: BoxDecoration(
-                      color: AppTheme.success.withOpacity(0.1),
+                      color: AppTheme.success.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(20),
                       border: Border.all(
-                          color: AppTheme.success.withOpacity(0.3)),
+                          color: AppTheme.success.withValues(alpha: 0.3)),
                     ),
                     child: Row(
                       children: [
@@ -483,7 +483,7 @@ class _OverviewPageState extends State<_OverviewPage> {
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
           color: onTap != null
-              ? color.withOpacity(0.3)
+              ? color.withValues(alpha: 0.3)
               : AppColors.border(ctx),
         ),
       ),
@@ -496,7 +496,7 @@ class _OverviewPageState extends State<_OverviewPage> {
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: color.withOpacity(0.12),
+                  color: color.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Icon(icon, color: color, size: 18),
@@ -683,9 +683,9 @@ class _ApprovalsPageState extends State<_ApprovalsPage> {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                     decoration: BoxDecoration(
-                      color: AppTheme.warning.withOpacity(0.1),
+                      color: AppTheme.warning.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: AppTheme.warning.withOpacity(0.3)),
+                      border: Border.all(color: AppTheme.warning.withValues(alpha: 0.3)),
                     ),
                     child: Text('${_pending.length} pending',
                         style: const TextStyle(
@@ -721,7 +721,7 @@ class _ApprovalsPageState extends State<_ApprovalsPage> {
                 child: Column(
                   children: [
                     Icon(Icons.check_circle_outline_rounded,
-                        size: 56, color: AppTheme.success.withOpacity(0.5)),
+                        size: 56, color: AppTheme.success.withValues(alpha: 0.5)),
                     const SizedBox(height: 16),
                     Text('All caught up!',
                         style: TextStyle(color: textPri, fontSize: 18, fontWeight: FontWeight.w700)),
@@ -754,9 +754,9 @@ class _ApprovalsPageState extends State<_ApprovalsPage> {
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 10),
         decoration: BoxDecoration(
-          color: color.withOpacity(0.1),
+          color: color.withValues(alpha: 0.1),
           borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: color.withOpacity(0.3)),
+          border: Border.all(color: color.withValues(alpha: 0.3)),
         ),
         child: loading
             ? Center(
@@ -804,9 +804,9 @@ class _ApprovalsPageState extends State<_ApprovalsPage> {
               Container(
                 width: 46, height: 46,
                 decoration: BoxDecoration(
-                  color: AppTheme.warning.withOpacity(0.1),
+                  color: AppTheme.warning.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: AppTheme.warning.withOpacity(0.2)),
+                  border: Border.all(color: AppTheme.warning.withValues(alpha: 0.2)),
                 ),
                 child: const Icon(Icons.storefront_rounded,
                     color: AppTheme.warning, size: 22),
@@ -829,9 +829,9 @@ class _ApprovalsPageState extends State<_ApprovalsPage> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
-                  color: AppTheme.warning.withOpacity(0.1),
+                  color: AppTheme.warning.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: AppTheme.warning.withOpacity(0.3)),
+                  border: Border.all(color: AppTheme.warning.withValues(alpha: 0.3)),
                 ),
                 child: const Text('Pending',
                     style: TextStyle(
@@ -985,7 +985,7 @@ class _RiderDeskPageState extends State<_RiderDeskPage> {
         children: [
           CircleAvatar(
             radius: 22,
-            backgroundColor: AppTheme.accent.withOpacity(0.12),
+            backgroundColor: AppTheme.accent.withValues(alpha: 0.12),
             child: Text(name.isNotEmpty ? name[0].toUpperCase() : '?',
                 style: const TextStyle(
                     color: AppTheme.accent,
@@ -1011,7 +1011,7 @@ class _RiderDeskPageState extends State<_RiderDeskPage> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
             decoration: BoxDecoration(
-              color: AppTheme.success.withOpacity(0.1),
+              color: AppTheme.success.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(20),
             ),
             child: const Text('Registered',
@@ -1191,7 +1191,7 @@ class _UsersPageState extends State<_UsersPage> {
       child: Row(
         children: [
           CircleAvatar(
-            backgroundColor: color.withOpacity(0.12),
+            backgroundColor: color.withValues(alpha: 0.12),
             radius: 20,
             child: Text(name.isNotEmpty ? name[0].toUpperCase() : '?',
                 style: TextStyle(color: color, fontWeight: FontWeight.w700)),
@@ -1213,7 +1213,7 @@ class _UsersPageState extends State<_UsersPage> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
             decoration: BoxDecoration(
-              color: color.withOpacity(0.12),
+              color: color.withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(20),
             ),
             child: Text(role,
@@ -1354,7 +1354,9 @@ class _AdminSettingsPageState extends State<_AdminSettingsPage> {
                     isLoading: saving,
                     onPressed: () async {
                       if (nameCtrl.text.trim().isEmpty ||
-                          emailCtrl.text.trim().isEmpty) return;
+                          emailCtrl.text.trim().isEmpty) {
+                        return;
+                      }
                       set(() => saving = true);
                       try {
                         await ApiService.updateMyProfile(
@@ -1656,7 +1658,7 @@ class _AdminSettingsPageState extends State<_AdminSettingsPage> {
           ),
           Switch(
             value: value,
-            activeColor: AppTheme.accent,
+            activeThumbColor: AppTheme.accent,
             onChanged: onChanged,
           ),
         ],
@@ -1827,7 +1829,7 @@ class _HelpSupportScreen extends StatelessWidget {
             decoration: BoxDecoration(
               color: AppTheme.accentDim,
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: AppTheme.accent.withOpacity(0.3)),
+              border: Border.all(color: AppTheme.accent.withValues(alpha: 0.3)),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -2078,7 +2080,7 @@ class _AdminOrdersScreenState extends State<_AdminOrdersScreen> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
-                  color: color.withOpacity(0.12),
+                  color: color.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: Text(status.replaceAll('_', ' '),
@@ -2202,10 +2204,10 @@ class _AdminRevenueScreenState extends State<_AdminRevenueScreen> {
                         width: double.infinity,
                         padding: const EdgeInsets.all(24),
                         decoration: BoxDecoration(
-                          color: const Color(0xFF8B5CF6).withOpacity(0.1),
+                          color: const Color(0xFF8B5CF6).withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(18),
                           border: Border.all(
-                              color: const Color(0xFF8B5CF6).withOpacity(0.3)),
+                              color: const Color(0xFF8B5CF6).withValues(alpha: 0.3)),
                         ),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -2327,7 +2329,7 @@ class _AdminRevenueScreenState extends State<_AdminRevenueScreen> {
           Container(
             width: 28, height: 28,
             decoration: BoxDecoration(
-              color: AppTheme.accent.withOpacity(0.12),
+              color: AppTheme.accent.withValues(alpha: 0.12),
               shape: BoxShape.circle,
             ),
             child: Center(

@@ -1,10 +1,8 @@
 import 'dart:convert';
 import 'dart:typed_data';
-import 'package:google_sign_in/google_sign_in.dart';
 import 'package:http/http.dart' as http;
 import '../models/models.dart';
 import 'package:flutter/material.dart';
-import 'package:http_parser/http_parser.dart'; // For MediaType
 
 // Custom exception for email not verified during login
 class EmailNotVerifiedException implements Exception {
@@ -15,8 +13,32 @@ class EmailNotVerifiedException implements Exception {
   String toString() => message;
 }
 
+class PasswordResetException implements Exception {
+  final String code;
+  final String message;
+
+  const PasswordResetException(this.code, this.message);
+
+  @override
+  String toString() => message;
+}
+
+String? extractResetTokenFromUri(Uri uri) {
+  final token = uri.queryParameters['token']?.trim();
+  if (token == null || token.isEmpty) return null;
+  return token;
+}
+
+String _extractMessage(Map<String, dynamic> data, String fallback) {
+  final rawMessage = data['message'] ?? data['detail'];
+  if (rawMessage is String && rawMessage.trim().isNotEmpty) {
+    return rawMessage.trim();
+  }
+  return fallback;
+}
+
 class ApiService {
-  static const String baseUrl = 'http://127.0.0.1:8000';
+  static const String baseUrl = 'http://localhost:8000';
 
   // ── Safe decoder ──────────────────────────────────────────────────────────
   static Map<String, dynamic> _decode(http.Response response) {
@@ -70,40 +92,24 @@ class ApiService {
   }
 
   static Future<Map<String, dynamic>> loginWithGoogle() async {
-    try {
-      final GoogleSignIn googleSignIn = GoogleSignIn(
-        clientId: '779814360612-t3r0i8l4pa2r8jqfb1bcd4nh8e429tot.apps.googleusercontent.com',
-        scopes: ['email', 'profile'],
-      );
+    throw UnimplementedError(
+      'Google authentication is handled by the browser redirect flow via /auth/google/login. Use the GoogleOAuthScreen to follow the backend OAuth redirect.',
+    );
+  }
 
-      final GoogleSignInAccount? googleUser = await googleSignIn.signIn();
-      if (googleUser == null) {
-        throw Exception('Google sign-in cancelled by user.');
-      }
+  static Future<Map<String, dynamic>> exchangeGoogleOAuthCode(String code) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/auth/google/exchange'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({'code': code}),
+    );
 
-      final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
-      final String? idToken = googleAuth.idToken;
-
-      if (idToken == null) {
-        throw Exception('Failed to retrieve security token from Google.');
-      }
-
-      // Send it to your FastAPI backend
-      final response = await http.post(
-        Uri.parse('$baseUrl/auth/google'),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({'id_token': idToken}),
-      );
-
-      final data = _decode(response);
-      if (response.statusCode == 200) {
-        return data; 
-      }
-      throw Exception(data['detail'] ?? 'Google backend registration failed.');
-    } catch (e) {
-      debugPrint('Google Auth Client Error Trace: $e');
-      rethrow;
+    final data = _decode(response);
+    if (response.statusCode >= 200 && response.statusCode < 300) {
+      return data;
     }
+
+    throw Exception(data['detail'] ?? 'Google sign-in could not be completed.');
   }
 
   static Future<Map<String, dynamic>> register({
@@ -142,41 +148,50 @@ class ApiService {
 
   // ── FORGOT / RESET PASSWORD ───────────────────────────────────────────────
 
-  /// Called from the bottom sheet in login_screen.dart
-  static Future<void> requestPasswordReset(String email) async {
-    final response = await http.post(
-      Uri.parse(
-          '$baseUrl/auth/forgot-password?email=${Uri.encodeComponent(email)}'),
-    );
-    if (response.statusCode != 200) {
-      final data = _decode(response);
-      throw Exception(data['detail'] ?? 'Failed to send reset code');
-    }
+  /// Called from the login flow when a user requests a password reset link.
+  static Future<String> requestPasswordReset(String email) async {
+    return forgotPassword(email);
   }
 
   /// Called from forgot_password_screen.dart Step 1
-  static Future<void> forgotPassword(String email) async {
+  static Future<String> forgotPassword(String email) async {
     final response = await http.post(
-      Uri.parse(
-          '$baseUrl/auth/forgot-password?email=${Uri.encodeComponent(email)}'),
+      Uri.parse('$baseUrl/auth/forgot-password'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({'email': email.trim()}),
     );
-    if (response.statusCode != 200) {
-      final data = _decode(response);
-      throw Exception(data['detail'] ?? 'Failed to send reset code');
+
+    final data = _decode(response);
+    if (response.statusCode >= 200 && response.statusCode < 300) {
+      return _extractMessage(data, 'If the account exists, a password reset link has been sent.');
     }
+
+    throw PasswordResetException(
+      data['code']?.toString() ?? 'forgot_password_failed',
+      _extractMessage(data, 'Unable to process the password reset request right now.'),
+    );
   }
 
   /// Called from forgot_password_screen.dart Step 2
-  static Future<void> resetPassword(String token, String newPassword) async {
+  static Future<String> resetPassword(String token, String newPassword) async {
     final response = await http.post(
-      Uri.parse('$baseUrl/auth/reset-password'
-          '?token=${Uri.encodeComponent(token)}'
-          '&new_password=${Uri.encodeComponent(newPassword)}'),
+      Uri.parse('$baseUrl/auth/reset-password'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({
+        'token': token.trim(),
+        'new_password': newPassword,
+      }),
     );
-    if (response.statusCode != 200) {
-      final data = _decode(response);
-      throw Exception(data['detail'] ?? 'Failed to reset password');
+
+    final data = _decode(response);
+    if (response.statusCode >= 200 && response.statusCode < 300) {
+      return _extractMessage(data, 'Password reset successfully. You can now sign in.');
     }
+
+    throw PasswordResetException(
+      data['code']?.toString() ?? 'reset_password_failed',
+      _extractMessage(data, 'Unable to reset your password. Please try again.'),
+    );
   }
 
   // ── RESTAURANTS ───────────────────────────────────────────────────────────
@@ -526,7 +541,7 @@ class ApiService {
   }
 
   static Future<void> deleteMenuItem(String token, int itemId)  async {
-    final url = Uri.parse('http://127.0.0.1:8000/menu/$itemId');
+    final url = Uri.parse('http://localhost:8000/menu/$itemId');
    
     final response = await http.delete(
      url,
@@ -850,7 +865,7 @@ static Future<void> changeMyPassword({
         'file', // Must match the name parameter expected by your FastAPI backend (e.g., File(...))
         imageBytes,
         filename: filename,
-        contentType: MediaType('image', filename.split('.').last == 'png' ? 'png' : 'jpeg'),
+        contentType: null,
       ),
     );
 
@@ -892,7 +907,7 @@ static Future<List<Map<String, dynamic>>> getAllOrdersAdmin(
   required int orderId, 
   required String content,
 }) async {
-  final url = Uri.parse("http://127.0.0.1:8000/orders/$orderId/messages");
+  final url = Uri.parse("http://localhost:8000/orders/$orderId/messages");
 
   try {
     final response = await http.post(
@@ -927,8 +942,8 @@ static Future<List<Map<String, dynamic>>> getAllOrdersAdmin(
   required String token, 
   required int orderId,
 }) async {
-  // Replace with your local IP address (e.g. 192.168.x.x) if testing on a physical device!
-  final url = Uri.parse("http://127.0.0.1:8000/orders/$orderId/messages");
+  // Use localhost for local development to match the backend OAuth host.
+  final url = Uri.parse("http://localhost:8000/orders/$orderId/messages");
 
   try {
     final response = await http.get(

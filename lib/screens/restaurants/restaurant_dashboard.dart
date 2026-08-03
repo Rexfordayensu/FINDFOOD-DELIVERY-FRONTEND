@@ -10,7 +10,6 @@ import '../../models/models.dart';
 import '../../services/api_service.dart';
 import '../../services/providers.dart';
 import '../customer/food_feed_screen.dart';
-import 'package:findfood_app/screens/chat_screen.dart';
 
 class RestaurantDashboard extends StatefulWidget {
   const RestaurantDashboard({super.key, required String token});
@@ -171,7 +170,7 @@ class _PendingApprovalScreen extends StatelessWidget {
               Container(
                 width: 96, height: 96,
                 decoration: BoxDecoration(
-                  color: AppTheme.warning.withOpacity(0.12),
+                  color: AppTheme.warning.withValues(alpha: 0.12),
                   shape: BoxShape.circle,
                 ),
                 child: const Icon(Icons.hourglass_top_rounded,
@@ -388,10 +387,10 @@ class _OrdersPageState extends State<_OrdersPage> {
                     padding: const EdgeInsets.symmetric(
                         horizontal: 12, vertical: 6),
                     decoration: BoxDecoration(
-                      color: AppTheme.success.withOpacity(0.12),
+                      color: AppTheme.success.withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(20),
                       border: Border.all(
-                          color: AppTheme.success.withOpacity(0.3)),
+                          color: AppTheme.success.withValues(alpha: 0.3)),
                     ),
                     child: Row(children: [
                       _PulseDot(),
@@ -572,13 +571,13 @@ class _OrderCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
           color: isPending
-              ? AppTheme.accent.withOpacity(0.5)
+              ? AppTheme.accent.withValues(alpha: 0.5)
               : AppColors.border(context),
           width: isPending ? 1.5 : 1,
         ),
         boxShadow: isPending
             ? [BoxShadow(
-                color: AppTheme.accent.withOpacity(0.1),
+                color: AppTheme.accent.withValues(alpha: 0.1),
                 blurRadius: 12, offset: const Offset(0, 4))]
             : [],
       ),
@@ -673,10 +672,10 @@ class _OrderCard extends StatelessWidget {
                       child: Container(
                         padding: const EdgeInsets.symmetric(vertical: 12),
                         decoration: BoxDecoration(
-                          color: AppTheme.danger.withOpacity(0.08),
+                          color: AppTheme.danger.withValues(alpha: 0.08),
                           borderRadius: BorderRadius.circular(10),
                           border: Border.all(
-                              color: AppTheme.danger.withOpacity(0.3)),
+                              color: AppTheme.danger.withValues(alpha: 0.3)),
                         ),
                         child: const Center(
                           child: Text('Reject',
@@ -703,14 +702,14 @@ class _OrderCard extends StatelessWidget {
                         borderRadius: BorderRadius.circular(10),
                         boxShadow: [
                           BoxShadow(
-                            color: actionColor!.withOpacity(0.3),
+                            color: actionColor!.withValues(alpha: 0.3),
                             blurRadius: 8,
                             offset: const Offset(0, 3),
                           ),
                         ],
                       ),
                       child: Center(
-                        child: Text(actionLabel!,
+                        child: Text(actionLabel,
                             style: const TextStyle(
                                 color: Colors.black,
                                 fontWeight: FontWeight.w800,
@@ -729,10 +728,10 @@ class _OrderCard extends StatelessWidget {
                 width: double.infinity,
                 padding: const EdgeInsets.symmetric(vertical: 10),
                 decoration: BoxDecoration(
-                  color: AppTheme.success.withOpacity(0.08),
+                  color: AppTheme.success.withValues(alpha: 0.08),
                   borderRadius: BorderRadius.circular(10),
                   border: Border.all(
-                      color: AppTheme.success.withOpacity(0.3)),
+                      color: AppTheme.success.withValues(alpha: 0.3)),
                 ),
                 child: const Row(
                   mainAxisAlignment: MainAxisAlignment.center,
@@ -838,7 +837,7 @@ class _PulseDotState extends State<_PulseDot>
       builder: (_, __) => Container(
         width: 7, height: 7,
         decoration: BoxDecoration(
-          color: AppTheme.success.withOpacity(_anim.value),
+          color: AppTheme.success.withValues(alpha: _anim.value),
           shape: BoxShape.circle,
         ),
       ),
@@ -857,9 +856,9 @@ class _StatChip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
+        color: color.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: color.withOpacity(0.25)),
+        border: Border.all(color: color.withValues(alpha: 0.25)),
       ),
       child: Column(children: [
         Text(value,
@@ -1014,7 +1013,9 @@ class _MenuManagerPageState extends State<_MenuManagerPage> {
                 isLoading: saving,
                 onPressed: () async {
                   if (nameCtrl.text.trim().isEmpty ||
-                      priceCtrl.text.trim().isEmpty) return;
+                      priceCtrl.text.trim().isEmpty) {
+                    return;
+                  }
                   set(() => saving = true);
                   try {
                     // 1. Create the menu item first
@@ -1115,7 +1116,7 @@ class _MenuManagerPageState extends State<_MenuManagerPage> {
                     child: Container(
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
-                        color: AppTheme.danger.withOpacity(0.1),
+                        color: AppTheme.danger.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: const Icon(Icons.delete_outline_rounded,
@@ -1201,7 +1202,7 @@ class _MenuManagerPageState extends State<_MenuManagerPage> {
                         child: Container(
                           padding: const EdgeInsets.all(6),
                           decoration: BoxDecoration(
-                            color: Colors.black.withOpacity(0.6),
+                            color: Colors.black.withValues(alpha: 0.6),
                             shape: BoxShape.circle,
                           ),
                           child: const Icon(Icons.close_rounded,
@@ -1232,7 +1233,9 @@ class _MenuManagerPageState extends State<_MenuManagerPage> {
                 isLoading: saving,
                 onPressed: () async {
                   if (nameCtrl.text.trim().isEmpty ||
-                      priceCtrl.text.trim().isEmpty) return;
+                      priceCtrl.text.trim().isEmpty) {
+                    return;
+                  }
                   set(() => saving = true);
                   try {
                     var updated = await ApiService.updateMenuItem(
@@ -1478,7 +1481,7 @@ class _ManagedMenuItemCard extends StatelessWidget {
         border: Border.all(
           color: item.isAvailable
               ? AppColors.border(context)
-              : AppTheme.danger.withOpacity(0.25),
+              : AppTheme.danger.withValues(alpha: 0.25),
         ),
       ),
       child: Row(
@@ -1498,7 +1501,7 @@ class _ManagedMenuItemCard extends StatelessWidget {
                           color: AppColors.textHint(context), size: 24),
                       loadingBuilder: (_, child, progress) {
                         if (progress == null) return child;
-                        return Center(
+                        return const Center(
                           child: SizedBox(
                             width: 18, height: 18,
                             child: CircularProgressIndicator(
@@ -1597,7 +1600,7 @@ class _ManagedMenuItemCard extends StatelessWidget {
                     child: Container(
                       padding: const EdgeInsets.all(6),
                       decoration: BoxDecoration(
-                        color: AppTheme.danger.withOpacity(0.1),
+                        color: AppTheme.danger.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: const Icon(Icons.delete_outline_rounded,
@@ -1709,13 +1712,13 @@ class _EarningsPageState extends State<_EarningsPage> {
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
                         colors: [
-                          AppTheme.accent.withOpacity(0.15),
-                          AppTheme.accent.withOpacity(0.05),
+                          AppTheme.accent.withValues(alpha: 0.15),
+                          AppTheme.accent.withValues(alpha: 0.05),
                         ],
                       ),
                       borderRadius: BorderRadius.circular(18),
                       border: Border.all(
-                          color: AppTheme.accent.withOpacity(0.3)),
+                          color: AppTheme.accent.withValues(alpha: 0.3)),
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1856,7 +1859,7 @@ class _EarningsPageState extends State<_EarningsPage> {
             width: 28, height: 28,
             decoration: BoxDecoration(
               color: rank == 1
-                  ? AppTheme.accent.withOpacity(0.15)
+                  ? AppTheme.accent.withValues(alpha: 0.15)
                   : AppColors.surface(ctx),
               shape: BoxShape.circle,
             ),
@@ -1952,7 +1955,7 @@ class _RevenueBarChart extends StatelessWidget {
                     builder: (_, v, __) => Container(
                       height: 90 * v,
                       decoration: BoxDecoration(
-                        color: AppTheme.accent.withOpacity(0.8),
+                        color: AppTheme.accent.withValues(alpha: 0.8),
                         borderRadius: BorderRadius.circular(4),
                       ),
                     ),
@@ -2033,7 +2036,7 @@ class _SettingsPageState extends State<_SettingsPage> {
                   Switch(
                     value: _isOpen,
                     onChanged: (v) => setState(() => _isOpen = v),
-                    activeColor: AppTheme.accent,
+                    activeThumbColor: AppTheme.accent,
                   ),
                 ]),
               ),

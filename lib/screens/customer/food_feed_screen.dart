@@ -1,4 +1,3 @@
-import '../customer/food_feed_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../theme.dart';
@@ -73,7 +72,7 @@ final _demoRestaurants = [
 String getFullImageUrl(String? url) {
   if (url == null || url.isEmpty) return '';
   if (url.startsWith('http://') || url.startsWith('https://')) return url;
-  return 'http://127.0.0.1:8000$url';
+  return 'http://localhost:8000$url';
 }
 
 class FoodFeedScreen extends StatefulWidget {
@@ -223,7 +222,7 @@ class _FoodFeedScreenState extends State<FoodFeedScreen>
                                             padding: const EdgeInsets.symmetric(
                                                 horizontal: 10, vertical: 4),
                                             decoration: BoxDecoration(
-                                              color: AppTheme.accent.withOpacity(0.1),
+                                              color: AppTheme.accent.withValues(alpha: 0.1),
                                               borderRadius: BorderRadius.circular(20),
                                             ),
                                             child: Text(
@@ -276,8 +275,15 @@ class _FoodFeedScreenState extends State<FoodFeedScreen>
             if (auth.isLoggedIn) {
               _showProfileSheet(context, auth, themeP);
             } else {
-              Navigator.push(context,
-                  MaterialPageRoute(builder: (_) => const LoginScreen()));
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const LoginScreen(
+                    returnRoute: '/home',
+                    pendingAction: 'browse_menu',
+                  ),
+                ),
+              );
             }
             return;
           }
@@ -313,7 +319,7 @@ class _FoodFeedScreenState extends State<FoodFeedScreen>
             Container(
               padding: const EdgeInsets.all(18),
               decoration: BoxDecoration(
-                color: AppTheme.accent.withOpacity(0.12),
+                color: AppTheme.accent.withValues(alpha: 0.12),
                 shape: BoxShape.circle,
               ),
               child: const Icon(Icons.storefront_rounded,
@@ -381,7 +387,7 @@ class _FoodFeedScreenState extends State<FoodFeedScreen>
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
               decoration: BoxDecoration(
-                color: AppTheme.accent.withOpacity(0.1),
+                color: AppTheme.accent.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(20),
               ),
               child: Text(auth.role ?? '',
@@ -453,7 +459,7 @@ class _Header extends StatelessWidget {
                           fontWeight: FontWeight.w900, fontSize: 16,
                           letterSpacing: 0.4)),
                   Row(children: [
-                    Icon(Icons.location_on_rounded,
+                    const Icon(Icons.location_on_rounded,
                         color: AppTheme.accent, size: 11),
                     const SizedBox(width: 2),
                     Text('East Legon, Accra',
@@ -486,11 +492,18 @@ class _Header extends StatelessWidget {
                 color: auth.isLoggedIn ? AppTheme.accent : textPri,
                 bg: auth.isLoggedIn ? AppTheme.accentDim : surf,
                 border: auth.isLoggedIn
-                    ? AppTheme.accent.withOpacity(0.3) : border,
+                    ? AppTheme.accent.withValues(alpha: 0.3) : border,
                 onTap: () {
                   if (!auth.isLoggedIn) {
-                    Navigator.push(context, MaterialPageRoute(
-                        builder: (_) => const LoginScreen()));
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const LoginScreen(
+                          returnRoute: '/home',
+                          pendingAction: 'sign_in',
+                        ),
+                      ),
+                    );
                   }
                 },
                 tooltip: auth.isLoggedIn ? 'Profile' : 'Sign in',
@@ -551,7 +564,7 @@ class _AnimatedSearchBarState extends State<_AnimatedSearchBar> {
         ),
         boxShadow: _focused
             ? [BoxShadow(
-                color: AppTheme.accent.withOpacity(0.12),
+                color: AppTheme.accent.withValues(alpha: 0.12),
                 blurRadius: 12, offset: const Offset(0, 3))]
             : [],
       ),
@@ -641,7 +654,7 @@ class _FilterRow extends StatelessWidget {
                     color: active ? AppTheme.accent : border),
                 boxShadow: active
                     ? [BoxShadow(
-                        color: AppTheme.accent.withOpacity(0.25),
+                        color: AppTheme.accent.withValues(alpha: 0.25),
                         blurRadius: 8, offset: const Offset(0, 3))]
                     : [],
               ),
@@ -756,13 +769,13 @@ class _RestaurantCardState extends State<_RestaurantCard>
                 borderRadius: BorderRadius.circular(18),
                 border: Border.all(
                     color: _hovered
-                        ? AppTheme.accent.withOpacity(0.4) : border,
+                        ? AppTheme.accent.withValues(alpha: 0.4) : border,
                     width: _hovered ? 1.5 : 1),
                 boxShadow: [
                   BoxShadow(
                     color: _hovered
-                        ? AppTheme.accent.withOpacity(0.12)
-                        : Colors.black.withOpacity(0.06),
+                        ? AppTheme.accent.withValues(alpha: 0.12)
+                        : Colors.black.withValues(alpha: 0.06),
                     blurRadius: _hovered ? 20 : 10,
                     offset: Offset(0, _hovered ? 6 : 3),
                   ),
@@ -777,8 +790,8 @@ class _RestaurantCardState extends State<_RestaurantCard>
                       AnimatedContainer(
                         duration: const Duration(milliseconds: 200),
                         height: _hovered ? 158 : 148,
-                        decoration: BoxDecoration(
-                          borderRadius: const BorderRadius.vertical(
+                        decoration: const BoxDecoration(
+                          borderRadius: BorderRadius.vertical(
                               top: Radius.circular(18)),
                         ),
                         child: ClipRRect(
@@ -830,8 +843,8 @@ class _RestaurantCardState extends State<_RestaurantCard>
                                     begin: Alignment.topCenter,
                                     end: Alignment.bottomCenter,
                                     colors: [
-                                      Colors.black.withOpacity(_hovered ? 0.15 : 0.05),
-                                      Colors.black.withOpacity(_hovered ? 0.55 : 0.35),
+                                      Colors.black.withValues(alpha: _hovered ? 0.15 : 0.05),
+                                      Colors.black.withValues(alpha: _hovered ? 0.55 : 0.35),
                                     ],
                                   ),
                                 ),
@@ -848,11 +861,11 @@ class _RestaurantCardState extends State<_RestaurantCard>
                           padding: const EdgeInsets.symmetric(
                               horizontal: 10, vertical: 5),
                           decoration: BoxDecoration(
-                            color: Colors.black.withOpacity(0.55),
+                            color: Colors.black.withValues(alpha: 0.55),
                             borderRadius: BorderRadius.circular(20),
                             border: r.isActive
                                 ? Border.all(
-                                    color: AppTheme.success.withOpacity(0.4))
+                                    color: AppTheme.success.withValues(alpha: 0.4))
                                 : null,
                           ),
                           child: Row(
@@ -903,7 +916,7 @@ class _RestaurantCardState extends State<_RestaurantCard>
                             duration: const Duration(milliseconds: 200),
                             child: Container(
                               padding: const EdgeInsets.all(8),
-                              decoration: BoxDecoration(
+                              decoration: const BoxDecoration(
                                 color: AppTheme.accent,
                                 shape: BoxShape.circle,
                               ),
@@ -975,7 +988,7 @@ class _RestaurantCardState extends State<_RestaurantCard>
                         // Pills row
                         Row(
                           children: [
-                            _Pill('Free delivery', AppTheme.success),
+                            const _Pill('Free delivery', AppTheme.success),
                             const SizedBox(width: 8),
                             _Pill('Min GH₵ 20', textHint),
                           ],
@@ -993,7 +1006,7 @@ class _RestaurantCardState extends State<_RestaurantCard>
                                 borderRadius: BorderRadius.circular(12),
                                 boxShadow: [
                                   BoxShadow(
-                                    color: AppTheme.accent.withOpacity(0.35),
+                                    color: AppTheme.accent.withValues(alpha: 0.35),
                                     blurRadius: 10,
                                     offset: const Offset(0, 4),
                                   ),
@@ -1041,9 +1054,9 @@ class _Pill extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
+        color: color.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: color.withOpacity(0.25)),
+        border: Border.all(color: color.withValues(alpha: 0.25)),
       ),
       child: Text(label,
           style: TextStyle(color: color,
@@ -1091,12 +1104,12 @@ class _IconBtnState extends State<_IconBtn> {
                 width: 38, height: 38,
                 decoration: BoxDecoration(
                   color: _hovered
-                      ? AppTheme.accent.withOpacity(0.15)
+                      ? AppTheme.accent.withValues(alpha: 0.15)
                       : widget.bg,
                   borderRadius: BorderRadius.circular(11),
                   border: Border.all(
                       color: _hovered
-                          ? AppTheme.accent.withOpacity(0.4)
+                          ? AppTheme.accent.withValues(alpha: 0.4)
                           : widget.border),
                 ),
                 child: Icon(widget.icon, color: widget.color, size: 19),
@@ -1174,7 +1187,7 @@ class _BottomNav extends StatelessWidget {
                               padding: EdgeInsets.all(active ? 6 : 0),
                               decoration: BoxDecoration(
                                 color: active
-                                    ? AppTheme.accent.withOpacity(0.12)
+                                    ? AppTheme.accent.withValues(alpha: 0.12)
                                     : Colors.transparent,
                                 borderRadius: BorderRadius.circular(10),
                               ),
@@ -1248,9 +1261,9 @@ class _SheetBtn extends StatelessWidget {
         width: double.infinity,
         padding: const EdgeInsets.symmetric(vertical: 14),
         decoration: BoxDecoration(
-          color: color.withOpacity(0.08),
+          color: color.withValues(alpha: 0.08),
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: color.withOpacity(0.25)),
+          border: Border.all(color: color.withValues(alpha: 0.25)),
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,

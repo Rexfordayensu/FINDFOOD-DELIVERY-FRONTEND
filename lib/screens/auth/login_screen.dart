@@ -1,4 +1,5 @@
 import 'package:findfood_app/screens/auth/email_verification_screen.dart';
+import 'package:findfood_app/screens/auth/forgot_password_screen.dart';
 import 'package:findfood_app/screens/restaurants/restaurant_dashboard.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -10,9 +11,19 @@ import '../../screens/splash_screen.dart';
 import '../customer/food_feed_screen.dart';
 import '../admin/admin_dashboard.dart';
 import '../rider/rider_dashboard.dart';
+import 'google_oauth_screen.dart';
 
 class LoginScreen extends StatefulWidget {
-  const LoginScreen({super.key});
+  const LoginScreen({
+    super.key,
+    this.returnRoute = '/home',
+    this.pendingAction,
+    this.pendingParameters,
+  });
+
+  final String returnRoute;
+  final String? pendingAction;
+  final Map<String, dynamic>? pendingParameters;
 
   @override
   State<LoginScreen> createState() => _LoginScreenState();
@@ -85,7 +96,7 @@ class _LoginScreenState extends State<LoginScreen>
 
       // Show splash then route by role
       _goWithSplash(_destinationFor(data['role']));
-    } on EmailNotVerifiedException catch (e) {
+    } on EmailNotVerifiedException {
       if (!mounted) return;
       // Navigate to email verification screen
       Navigator.of(context).pushReplacement(
@@ -210,270 +221,29 @@ class _LoginScreenState extends State<LoginScreen>
 
   // ── FORGOT PASSWORD ───────────────────────────────────────────────────────
   void _showForgotPassword() {
-    _resetEmail.text = _loginEmail.text.trim();
-    bool sending = false;
-    bool sent    = false;
-
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: AppColors.card(context),
-      shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setSheet) => Padding(
-          padding: EdgeInsets.fromLTRB(
-              24, 16, 24, MediaQuery.of(ctx).viewInsets.bottom + 24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Handle
-              Center(
-                child: Container(
-                  width: 36, height: 4,
-                  decoration: BoxDecoration(
-                    color: AppColors.border(ctx),
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 20),
-
-              if (!sent) ...[
-                // ── Step 1: Enter email ──────────────────────
-                Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(
-                        color: AppTheme.accent.withValues(alpha: 0.12),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: const Icon(Icons.lock_reset_rounded,
-                          color: AppTheme.accent, size: 22),
-                    ),
-                    const SizedBox(width: 14),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('Reset password',
-                            style: TextStyle(
-                                color: AppColors.textPrimary(ctx),
-                                fontSize: 18,
-                                fontWeight: FontWeight.w800)),
-                        Text('We\'ll send a reset link to your email',
-                            style: TextStyle(
-                                color: AppColors.textSecondary(ctx),
-                                fontSize: 12)),
-                      ],
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 24),
-
-                Text('Email address',
-                    style: TextStyle(
-                        color: AppColors.textSecondary(ctx),
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600)),
-                const SizedBox(height: 8),
-                Container(
-                  decoration: BoxDecoration(
-                    color: AppColors.surface(ctx),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: AppColors.border(ctx)),
-                  ),
-                  child: Row(
-                    children: [
-                      const SizedBox(width: 14),
-                      Icon(Icons.email_outlined,
-                          color: AppColors.textHint(ctx), size: 18),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: TextField(
-                          controller: _resetEmail,
-                          keyboardType: TextInputType.emailAddress,
-                          style: TextStyle(
-                              color: AppColors.textPrimary(ctx),
-                              fontSize: 15),
-                          decoration: InputDecoration(
-                            hintText: 'Enter your email',
-                            hintStyle: TextStyle(
-                                color: AppColors.textHint(ctx)),
-                            border: InputBorder.none,
-                            enabledBorder: InputBorder.none,
-                            focusedBorder: InputBorder.none,
-                            contentPadding: const EdgeInsets.symmetric(
-                                vertical: 14),
-                            isDense: true,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 20),
-
-                // Send button
-                SizedBox(
-                  width: double.infinity,
-                  height: 52,
-                  child: ElevatedButton(
-                    onPressed: sending
-                        ? null
-                        : () async {
-                            final email = _resetEmail.text.trim();
-                            if (email.isEmpty || !email.contains('@')) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  backgroundColor: AppTheme.danger,
-                                  content: Text('Enter a valid email',
-                                      style: TextStyle(color: Colors.white)),
-                                ),
-                              );
-                              return;
-                            }
-                            setSheet(() => sending = true);
-                            try {
-                              // Call backend password reset endpoint
-                              await ApiService.requestPasswordReset(email);
-                              setSheet(() { sending = false; sent = true; });
-                            } catch (e) {
-                              setSheet(() => sending = false);
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  backgroundColor: AppTheme.danger,
-                                  content: Text(
-                                    e.toString().replaceAll('Exception: ', ''),
-                                    style: const TextStyle(color: Colors.white),
-                                  ),
-                                ),
-                              );
-                            }
-                          },
-                    child: sending
-                        ? const SizedBox(
-                            width: 22, height: 22,
-                            child: CircularProgressIndicator(
-                                color: Colors.black, strokeWidth: 2.5))
-                        : const Text('Send reset link'),
-                  ),
-                ),
-              ] else ...[
-                // ── Step 2: Confirmation ─────────────────────
-                Center(
-                  child: Column(
-                    children: [
-                      Container(
-                        width: 72, height: 72,
-                        decoration: BoxDecoration(
-                          color: AppTheme.success.withValues(alpha: 0.12),
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Icon(Icons.mark_email_read_rounded,
-                            color: AppTheme.success, size: 36),
-                      ),
-                      const SizedBox(height: 16),
-                      Text('Check your inbox!',
-                          style: TextStyle(
-                              color: AppColors.textPrimary(ctx),
-                              fontSize: 20,
-                              fontWeight: FontWeight.w800)),
-                      const SizedBox(height: 8),
-                      Text(
-                        'We sent a password reset link to\n${_resetEmail.text.trim()}',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                            color: AppColors.textSecondary(ctx),
-                            fontSize: 14,
-                            height: 1.5),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        'Check your spam folder if you don\'t see it.',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                            color: AppColors.textHint(ctx), fontSize: 12),
-                      ),
-                      const SizedBox(height: 24),
-                      SizedBox(
-                        width: double.infinity,
-                        height: 52,
-                        child: ElevatedButton(
-                          onPressed: () => Navigator.pop(ctx),
-                          child: const Text('Back to sign in'),
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      // Resend
-                      GestureDetector(
-                        onTap: () => setSheet(() => sent = false),
-                        child: const Text('Resend email',
-                            style: TextStyle(
-                                color: AppTheme.accent,
-                                fontWeight: FontWeight.w700,
-                                fontSize: 14)),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ],
-          ),
-        ),
-      ),
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const ForgotPasswordScreen()),
     );
   }
 
-  // ── GOOGLE SIGN IN (UI only — needs Firebase to work fully) ───────────────
-  void _googleSignIn() {
-    showDialog(
-      context: context,
-      builder: (_) => AlertDialog(
-        backgroundColor: AppColors.card(context),
-        shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20)),
-        title: Text('Google Sign-In',
-            style: TextStyle(
-                color: AppColors.textPrimary(context),
-                fontWeight: FontWeight.w700)),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: AppTheme.accent.withValues(alpha: 0.1),
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(Icons.g_mobiledata_rounded,
-                  color: AppTheme.accent, size: 36),
-            ),
-            const SizedBox(height: 14),
-            Text(
-              'To enable Google Sign-In, connect Firebase to your project.\n\n'
-              'Steps:\n'
-              '1. Create a Firebase project at console.firebase.google.com\n'
-              '2. Add google-services.json to android/app/\n'
-              '3. Run: flutter pub add firebase_auth google_sign_in',
-              style: TextStyle(
-                  color: AppColors.textSecondary(context),
-                  fontSize: 13,
-                  height: 1.5),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Got it',
-                style: TextStyle(
-                    color: AppTheme.accent, fontWeight: FontWeight.w700)),
+  // ── GOOGLE SIGN IN ───────────────────────────────────────────────────────
+  Future<void> _googleSignIn() async {
+    try {
+      if (!mounted) return;
+      await Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => GoogleOAuthScreen(
+            returnRoute: widget.returnRoute,
+            pendingAction: widget.pendingAction,
+            pendingParameters: widget.pendingParameters,
           ),
-        ],
-      ),
-    );
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      _showError(e.toString().replaceAll('Exception: ', ''));
+    }
   }
 
   void _showComingSoon(String feature) {
@@ -482,7 +252,7 @@ class _LoginScreenState extends State<LoginScreen>
       builder: (_) => AlertDialog(
         backgroundColor: AppColors.card(context),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: Text('$feature', style: TextStyle(color: AppColors.textPrimary(context))),
+        title: Text(feature, style: TextStyle(color: AppColors.textPrimary(context))),
         content: Text('This feature is coming soon.', style: TextStyle(color: AppColors.textSecondary(context))),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context), child: const Text('OK')),

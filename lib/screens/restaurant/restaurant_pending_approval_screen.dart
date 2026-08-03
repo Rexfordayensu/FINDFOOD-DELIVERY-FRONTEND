@@ -49,7 +49,7 @@ class _RestaurantPendingApprovalScreenState
                   color: AppTheme.warning.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(24),
                 ),
-                child: Icon(
+                child: const Icon(
                   Icons.hourglass_bottom_rounded,
                   size: 64,
                   color: AppTheme.warning,
@@ -98,7 +98,7 @@ class _RestaurantPendingApprovalScreenState
                     Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Icon(
+                        const Icon(
                           Icons.info_outline_rounded,
                           color: AppTheme.warning,
                           size: 20,
@@ -191,14 +191,14 @@ class _RestaurantPendingApprovalScreenState
                   color: AppTheme.success.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: Row(
+                child: const Row(
                   children: [
                     Icon(
                       Icons.schedule_rounded,
                       size: 16,
                       color: AppTheme.success,
                     ),
-                    const SizedBox(width: 8),
+                    SizedBox(width: 8),
                     Expanded(
                       child: Text(
                         'Typically approved within 24-48 hours',

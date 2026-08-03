@@ -274,7 +274,7 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen>
                         color: AppTheme.accent.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(20),
                       ),
-                      child: Icon(
+                      child: const Icon(
                         Icons.mail_outline_rounded,
                         size: 48,
                         color: AppTheme.accent,
@@ -346,7 +346,7 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen>
                         ),
                         child: Row(
                           children: [
-                            Icon(
+                            const Icon(
                               Icons.error_outline_rounded,
                               color: AppTheme.danger,
                               size: 20,

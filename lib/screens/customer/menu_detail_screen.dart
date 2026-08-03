@@ -221,7 +221,7 @@ class _MenuDetailScreenState extends State<MenuDetailScreen> {
                 onTap: () => Navigator.pop(context),
                 child: Container(
                   decoration: BoxDecoration(
-                    color: Colors.black.withOpacity(0.4),
+                    color: Colors.black.withValues(alpha: 0.4),
                     shape: BoxShape.circle,
                   ),
                   child: const Icon(Icons.arrow_back_ios_new_rounded,
@@ -242,7 +242,7 @@ class _MenuDetailScreenState extends State<MenuDetailScreen> {
                         margin: const EdgeInsets.all(8),
                         padding: const EdgeInsets.all(8),
                         decoration: BoxDecoration(
-                          color: Colors.black.withOpacity(0.4),
+                          color: Colors.black.withValues(alpha: 0.4),
                           shape: BoxShape.circle,
                         ),
                         child: const Icon(Icons.shopping_basket_rounded,
@@ -291,7 +291,7 @@ class _MenuDetailScreenState extends State<MenuDetailScreen> {
                         end: Alignment.bottomCenter,
                         colors: [
                           Colors.transparent,
-                          Colors.black.withOpacity(0.7),
+                          Colors.black.withValues(alpha: 0.7),
                         ],
                       ),
                     ),
@@ -324,12 +324,12 @@ class _MenuDetailScreenState extends State<MenuDetailScreen> {
                             horizontal: 10, vertical: 5),
                         decoration: BoxDecoration(
                           color: r.isActive
-                              ? AppTheme.success.withOpacity(0.12)
+                              ? AppTheme.success.withValues(alpha: 0.12)
                               : AppColors.surface(context),
                           borderRadius: BorderRadius.circular(20),
                           border: Border.all(
                             color: r.isActive
-                                ? AppTheme.success.withOpacity(0.4)
+                                ? AppTheme.success.withValues(alpha: 0.4)
                                 : border,
                           ),
                         ),
@@ -495,7 +495,7 @@ class _MenuDetailScreenState extends State<MenuDetailScreen> {
                       borderRadius: BorderRadius.circular(16),
                       boxShadow: [
                         BoxShadow(
-                          color: AppTheme.accent.withOpacity(0.4),
+                          color: AppTheme.accent.withValues(alpha: 0.4),
                           blurRadius: 16,
                           offset: const Offset(0, 6),
                         ),
@@ -507,7 +507,7 @@ class _MenuDetailScreenState extends State<MenuDetailScreen> {
                           padding: const EdgeInsets.symmetric(
                               horizontal: 8, vertical: 3),
                           decoration: BoxDecoration(
-                            color: Colors.black.withOpacity(0.2),
+                            color: Colors.black.withValues(alpha: 0.2),
                             borderRadius: BorderRadius.circular(6),
                           ),
                           child: Text('${cart.itemCount}',
@@ -565,9 +565,9 @@ class _MenuDetailScreenState extends State<MenuDetailScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
+        color: color.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: color.withOpacity(0.25)),
+        border: Border.all(color: color.withValues(alpha: 0.25)),
       ),
       child: Text(label,
           style: TextStyle(color: color,
@@ -635,20 +635,20 @@ class _MenuItemCardState extends State<_MenuItemCard>
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
         color: _qty > 0
-            ? AppTheme.accent.withOpacity(0.04)
+            ? AppTheme.accent.withValues(alpha: 0.04)
             : bg,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
           color: _qty > 0
-              ? AppTheme.accent.withOpacity(0.35)
+              ? AppTheme.accent.withValues(alpha: 0.35)
               : border,
           width: _qty > 0 ? 1.5 : 1,
         ),
         boxShadow: [
           BoxShadow(
             color: _qty > 0
-                ? AppTheme.accent.withOpacity(0.08)
-                : Colors.black.withOpacity(0.04),
+                ? AppTheme.accent.withValues(alpha: 0.08)
+                : Colors.black.withValues(alpha: 0.04),
             blurRadius: _qty > 0 ? 12 : 6,
             offset: const Offset(0, 3),
           ),
@@ -734,7 +734,7 @@ class _MenuItemCardState extends State<_MenuItemCard>
                               padding: const EdgeInsets.symmetric(
                                   horizontal: 10, vertical: 5),
                               decoration: BoxDecoration(
-                                color: textHint.withOpacity(0.1),
+                                color: textHint.withValues(alpha: 0.1),
                                 borderRadius: BorderRadius.circular(8),
                               ),
                               child: Text('Sold out',
@@ -756,7 +756,7 @@ class _MenuItemCardState extends State<_MenuItemCard>
                                     borderRadius: BorderRadius.circular(12),
                                     boxShadow: [
                                       BoxShadow(
-                                        color: AppTheme.accent.withOpacity(0.4),
+                                        color: AppTheme.accent.withValues(alpha: 0.4),
                                         blurRadius: 8,
                                         offset: const Offset(0, 3),
                                       ),
@@ -816,7 +816,7 @@ class _MenuItemCardState extends State<_MenuItemCard>
               padding: const EdgeInsets.symmetric(
                   horizontal: 14, vertical: 8),
               decoration: BoxDecoration(
-                color: AppTheme.accent.withOpacity(0.08),
+                color: AppTheme.accent.withValues(alpha: 0.08),
                 borderRadius: const BorderRadius.vertical(
                     bottom: Radius.circular(16)),
               ),
@@ -887,11 +887,11 @@ class _QtyBtnState extends State<_QtyBtn>
           decoration: BoxDecoration(
             color: widget.filled
                 ? AppTheme.accent
-                : AppTheme.accent.withOpacity(0.12),
+                : AppTheme.accent.withValues(alpha: 0.12),
             borderRadius: BorderRadius.circular(10),
             border: widget.filled
                 ? null
-                : Border.all(color: AppTheme.accent.withOpacity(0.4)),
+                : Border.all(color: AppTheme.accent.withValues(alpha: 0.4)),
           ),
           child: Icon(widget.icon,
               color: widget.filled ? Colors.black : AppTheme.accent,

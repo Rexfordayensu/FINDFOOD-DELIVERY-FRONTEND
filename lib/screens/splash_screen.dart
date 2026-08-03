@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 
 class SplashScreen extends StatefulWidget {
@@ -12,6 +13,8 @@ class SplashScreen extends StatefulWidget {
 
 class _SplashScreenState extends State<SplashScreen>
     with TickerProviderStateMixin {
+
+  final List<Timer> _activeTimers = [];
 
   late AnimationController _popInCtrl;
   late Animation<double>   _scaleAnim;
@@ -99,37 +102,45 @@ class _SplashScreenState extends State<SplashScreen>
     _runSequence();
   }
 
+  void _scheduleStep(Duration delay, Future<void> Function() callback) {
+    final timer = Timer(delay, () async {
+      if (!mounted) return;
+      await callback();
+    });
+    _activeTimers.add(timer);
+  }
+
   Future<void> _runSequence() async {
-    await Future.delayed(const Duration(milliseconds: 150));
-    if (!mounted) return;
-    await _popInCtrl.forward();
-    
-    await Future.delayed(const Duration(milliseconds: 80));
-    if (!mounted) return;
-    await _textCtrl.forward();
-    
-    await Future.delayed(const Duration(milliseconds: 100));
-    if (!mounted) return;
-    await _tagCtrl.forward();
-    
-    await Future.delayed(const Duration(milliseconds: 800));
-    if (!mounted) return;
-    await _outCtrl.forward();
-    
-    if (!mounted) return;
-    Navigator.pushReplacement(
-      context,
-      PageRouteBuilder(
-        pageBuilder: (_, __, ___) => widget.destination,
-        transitionDuration: const Duration(milliseconds: 250),
-        transitionsBuilder: (_, anim, __, child) =>
-            FadeTransition(opacity: anim, child: child),
-      ),
-    );
+    _scheduleStep(const Duration(milliseconds: 150), () async {
+      await _popInCtrl.forward();
+      _scheduleStep(const Duration(milliseconds: 80), () async {
+        await _textCtrl.forward();
+        _scheduleStep(const Duration(milliseconds: 100), () async {
+          await _tagCtrl.forward();
+          _scheduleStep(const Duration(milliseconds: 800), () async {
+            await _outCtrl.forward();
+            if (!mounted) return;
+            Navigator.pushReplacement(
+              context,
+              PageRouteBuilder(
+                pageBuilder: (_, __, ___) => widget.destination,
+                transitionDuration: const Duration(milliseconds: 250),
+                transitionsBuilder: (_, anim, __, child) =>
+                    FadeTransition(opacity: anim, child: child),
+              ),
+            );
+          });
+        });
+      });
+    });
   }
 
   @override
   void dispose() {
+    for (final timer in _activeTimers) {
+      timer.cancel();
+    }
+    _activeTimers.clear();
     _popInCtrl.dispose();
     _textCtrl.dispose();
     _tagCtrl.dispose();

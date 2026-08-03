@@ -38,8 +38,12 @@ class _OtpInputWidgetState extends State<OtpInputWidget> {
 
   @override
   void dispose() {
-    for (final node in _focusNodes) node.dispose();
-    for (final controller in _controllers) controller.dispose();
+    for (final node in _focusNodes) {
+      node.dispose();
+    }
+    for (final controller in _controllers) {
+      controller.dispose();
+    }
     super.dispose();
   }
 

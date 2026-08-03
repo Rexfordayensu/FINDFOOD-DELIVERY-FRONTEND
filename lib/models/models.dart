@@ -177,7 +177,9 @@ class ChatMessage {
         isMine: json['is_mine'] ?? false,
       );
 
-  static Future<Object?> getMessages({required String token, required int orderId}) async {}
+  static Future<Object?> getMessages({required String token, required int orderId}) async {
+    return null;
+  }
 }
 
 // ─── ANALYTICS ────────────────────────────────────────────────────────────────

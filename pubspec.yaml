@@ -14,8 +14,12 @@ dependencies:
   http: ^1.2.0
   google_sign_in: ^6.1.6   # FIX: 6.1.x uses GoogleSignIn() constructor (stable)
   image_picker: ^1.1.2      # NEW: for restaurant menu photo uploads
-  web_socket_channel: ^2.4.5 # NEW: for live real-time chat
+  web_socket_channel: 3.0.3 # NEW: for live real-time chat
   url_launcher: ^6.1.7
+  app_links: ^7.2.1
+  flutter_secure_storage: ^10.3.1
+  flutter_web_plugins:
+    sdk: flutter
 
 dev_dependencies:
   flutter_test:

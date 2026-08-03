@@ -1,7 +1,8 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../models/models.dart';
-import 'api_service.dart'; // Moved all imports to the top
+import 'api_service.dart';
 
 // ─── THEME PROVIDER ───────────────────────────────────────────────────────────
 class ThemeProvider extends ChangeNotifier {
@@ -17,6 +18,13 @@ class ThemeProvider extends ChangeNotifier {
 
 // ─── AUTH PROVIDER ────────────────────────────────────────────────────────────
 class AuthProvider extends ChangeNotifier {
+  static const FlutterSecureStorage _secureStorage = FlutterSecureStorage();
+  static const String _tokenKey = 'auth_token';
+  static const String _userIdKey = 'auth_user_id';
+  static const String _roleKey = 'auth_role';
+  static const String _nameKey = 'auth_name';
+  static const String _emailKey = 'auth_email';
+
   String? _token;
   int?    _userId;
   String? _role;
@@ -40,9 +48,9 @@ class AuthProvider extends ChangeNotifier {
   bool get isRider      => _role == 'rider';
   bool get isAdmin      => _role == 'admin';
 
-  void login({required String token, required int userId,
+  Future<void> login({required String token, required int userId,
       required String role, String? name, String? email, 
-      bool? isEmailVerified, bool? isRestaurantApproved}) {
+      bool? isEmailVerified, bool? isRestaurantApproved}) async {
     _token = token; 
     _userId = userId;
     _role = role; 
@@ -51,6 +59,7 @@ class AuthProvider extends ChangeNotifier {
     _isLoggedIn = true;
     _isEmailVerified = isEmailVerified ?? false;
     _isRestaurantApproved = isRestaurantApproved ?? false;
+    await _persistSession();
     notifyListeners();
   }
 
@@ -69,7 +78,42 @@ class AuthProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  void logout() {
+  Future<void> initializeFromSecureStorage() async {
+    final token = await _secureStorage.read(key: _tokenKey);
+    if (token == null || token.isEmpty) return;
+
+    final userIdText = await _secureStorage.read(key: _userIdKey);
+    final role = await _secureStorage.read(key: _roleKey);
+    final name = await _secureStorage.read(key: _nameKey);
+    final email = await _secureStorage.read(key: _emailKey);
+
+    _token = token;
+    _userId = int.tryParse(userIdText ?? '0');
+    _role = role;
+    _name = name;
+    _email = email;
+    _isLoggedIn = true;
+    notifyListeners();
+  }
+
+  Future<void> _persistSession() async {
+    if (_token == null || _token!.isEmpty) return;
+    await _secureStorage.write(key: _tokenKey, value: _token);
+    await _secureStorage.write(key: _userIdKey, value: _userId?.toString() ?? '0');
+    await _secureStorage.write(key: _roleKey, value: _role ?? 'customer');
+    await _secureStorage.write(key: _nameKey, value: _name ?? '');
+    await _secureStorage.write(key: _emailKey, value: _email ?? '');
+  }
+
+  Future<void> clearPersistedSession() async {
+    await _secureStorage.delete(key: _tokenKey);
+    await _secureStorage.delete(key: _userIdKey);
+    await _secureStorage.delete(key: _roleKey);
+    await _secureStorage.delete(key: _nameKey);
+    await _secureStorage.delete(key: _emailKey);
+  }
+
+  Future<void> logout() async {
     _token = null; 
     _userId = null;
     _role = null; 
@@ -78,6 +122,7 @@ class AuthProvider extends ChangeNotifier {
     _isLoggedIn = false;
     _isEmailVerified = false;
     _isRestaurantApproved = false;
+    await clearPersistedSession();
     notifyListeners();
   }
 }
