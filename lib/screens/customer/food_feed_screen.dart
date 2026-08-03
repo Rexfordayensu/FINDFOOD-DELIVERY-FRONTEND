@@ -57,6 +57,29 @@ Map<String, dynamic> _cuisineFor(String c) {
   }
   return _cuisineData['default']!;
 }
+String _imageFor(dynamic r) {
+  String cuisine = '';
+  String? imageUrl;
+
+  if (r is Map) {
+    imageUrl = r['image_url']?.toString();
+    cuisine = r['cuisine_type']?.toString() ?? '';
+  } else if (r != null) {
+    try {
+      imageUrl = (r as dynamic).imageUrl?.toString();
+      cuisine = (r as dynamic).cuisineType?.toString() ?? '';
+    } catch (_) {}
+  }
+
+  // 1. Prioritize uploaded backend image
+  if (imageUrl != null && imageUrl.trim().isNotEmpty) {
+    return getFullImageUrl(imageUrl);
+  }
+
+  // 2. Fallback to cuisine stock photos if image_url is null/empty
+  final data = _cuisineFor(cuisine);
+  return data['image'] ?? _cuisineData['default']!['image']!;
+}
 
 // ── Demo data ─────────────────────────────────────────────────────────────────
 final _demoRestaurants = [
@@ -802,7 +825,8 @@ class _RestaurantCardState extends State<_RestaurantCard>
                             children: [
                               // Real food image
                               Image.network(
-                                getFullImageUrl(imageUrl),
+                                _imageFor(r), // Uses backend URL if available, else falls back to Unsplash
+                                key: ValueKey(r.id),
                                 fit: BoxFit.cover,
                                 loadingBuilder: (_, child, progress) {
                                   if (progress == null) return child;

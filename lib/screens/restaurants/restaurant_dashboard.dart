@@ -10,6 +10,11 @@ import '../../models/models.dart';
 import '../../services/api_service.dart';
 import '../../services/providers.dart';
 import '../customer/food_feed_screen.dart';
+<<<<<<< HEAD
+=======
+import 'package:findfood_app/screens/chat_screen.dart';
+import 'package:http/http.dart' as http;
+>>>>>>> 57ec94359be16d3537db6135e2f0e2b7aa49a7c7
 
 class RestaurantDashboard extends StatefulWidget {
   const RestaurantDashboard({super.key, required String token});
@@ -20,10 +25,56 @@ class RestaurantDashboard extends StatefulWidget {
 class _RestaurantDashboardState extends State<RestaurantDashboard> {
   int _selectedIndex = 0;
 
+Future<void> _uploadRestaurantBanner(int restaurantId) async {
+  final picker = ImagePicker();
+  final picked = await picker.pickImage(
+    source: ImageSource.gallery,
+    imageQuality: 85,
+  );
+
+  if (picked == null) return;
+
+  try {
+    var request = http.MultipartRequest(
+      'POST',
+      Uri.parse('${ApiService.baseUrl}/restaurants/$restaurantId/upload-banner'),
+    );
+    
+    // Add auth token header if your endpoints require authentication
+   // request.headers['Authorization'] = 'Bearer ${widget.token}';
+
+    request.files.add(await http.MultipartFile.fromPath('file', picked.path));
+
+    var streamedResponse = await request.send();
+    var response = await http.Response.fromStream(streamedResponse);
+
+    if (response.statusCode == 200) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Restaurant banner updated successfully! 🎉'),
+          backgroundColor: Colors.green,
+        ),
+      );
+      // Refresh dashboard state if needed
+      setState(() {});
+    } else {
+      throw Exception('Upload failed with status: ${response.statusCode}');
+    }
+  } catch (e) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Failed to upload banner: $e'),
+        backgroundColor: Colors.redAccent,
+      ),
+    );
+  }
+}
+
   // ── Approval gate state ────────────────────────────────────────────────
   bool _checking = true;
   bool _isApproved = false;
   String _restaurantName = '';
+  int _restaurantId = 0;
   String _checkError = '';
 
   @override
@@ -41,6 +92,7 @@ class _RestaurantDashboardState extends State<RestaurantDashboard> {
       setState(() {
         _isApproved = restaurant.isApproved;
         _restaurantName = restaurant.name;
+        _restaurantId = restaurant.id;
       });
     } catch (e) {
       setState(() => _checkError = e.toString().replaceAll('Exception: ', ''));
@@ -105,7 +157,7 @@ class _RestaurantDashboardState extends State<RestaurantDashboard> {
       const _OrdersPage(),
       const _MenuManagerPage(),
       const _EarningsPage(),
-      const _SettingsPage(),
+      _SettingsPage(restaurantId: _restaurantId)
     ];
 
     return Scaffold(
@@ -1976,13 +2028,66 @@ class _RevenueBarChart extends StatelessWidget {
 
 // ─── SETTINGS PAGE ────────────────────────────────────────────────────────────
 class _SettingsPage extends StatefulWidget {
-  const _SettingsPage();
+  final int restaurantId;
+  const _SettingsPage({Key? key, required this.restaurantId}) : super(key: key);
   @override
   State<_SettingsPage> createState() => _SettingsPageState();
 }
 
 class _SettingsPageState extends State<_SettingsPage> {
+
   bool _isOpen = true;
+
+Future<void> _uploadRestaurantBanner(int restaurantId) async {
+  final picker = ImagePicker();
+  final picked = await picker.pickImage(
+    source: ImageSource.gallery,
+    imageQuality: 85,
+  );
+
+  if (picked == null) return;
+
+  try {
+    // Matches http://127.0.0.1:8000/3/upload-banner
+    var request = http.MultipartRequest(
+      'POST',
+      Uri.parse('${ApiService.baseUrl}/$restaurantId/upload-banner'),
+    );
+
+    final bytes = await picked.readAsBytes();
+
+    request.files.add(
+      http.MultipartFile.fromBytes(
+        'file', // Matches the required 'file' parameter in Swagger
+        bytes,
+        filename: picked.name,
+      ),
+    );
+
+    var streamedResponse = await request.send();
+    var response = await http.Response.fromStream(streamedResponse);
+
+    if (response.statusCode == 200 || response.statusCode == 201) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Banner updated successfully! 🎉'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    } else {
+      throw Exception('Upload failed with status: ${response.statusCode}');
+    }
+  } catch (e) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Failed to upload banner: $e'),
+        backgroundColor: Colors.redAccent,
+      ),
+    );
+  }
+}
 
   @override
   Widget build(BuildContext context) {
@@ -1996,12 +2101,35 @@ class _SettingsPageState extends State<_SettingsPage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Settings',
-                  style: TextStyle(
-                      color: AppColors.textPrimary(context),
-                      fontSize: 24,
-                      fontWeight: FontWeight.w800)),
+              Text(
+                'Settings',
+                style: TextStyle(
+                  color: AppColors.textPrimary(context),
+                  fontSize: 24,
+                  fontWeight: FontWeight.w800),
+              ),
               const SizedBox(height: 24),
+
+             // Banner Upload Button
+// Banner Upload Button
+ElevatedButton.icon(
+  onPressed: () {
+    if (widget.restaurantId > 0) {
+  _uploadRestaurantBanner(widget.restaurantId);
+} else {
+  ScaffoldMessenger.of(context).showSnackBar(
+    const SnackBar(content: Text('Loading restaurant info...')),
+  );
+}
+  },
+  icon: const Icon(Icons.add_a_photo_rounded),
+  label: const Text("Upload image for your store"),
+  style: ElevatedButton.styleFrom(
+    minimumSize: const Size(double.infinity, 48),
+  ),
+),
+              const SizedBox(height: 16),
+
               // Kitchen toggle
               Container(
                 padding: const EdgeInsets.all(16),
