@@ -71,6 +71,18 @@ class GoogleOAuthConfig {
     final normalized = url.trim();
     return normalized.isNotEmpty && normalized.startsWith('http://localhost:8000/auth/google/callback');
   }
+
+  static bool looksLikeOAuthCallback(Uri uri) {
+    if (uri.path != callbackPath) {
+      return false;
+    }
+
+    final hasAuthCode = uri.queryParameters.containsKey('code') && uri.queryParameters['code']!.isNotEmpty;
+    final hasStatus = uri.queryParameters.containsKey('status') && uri.queryParameters['status']!.isNotEmpty;
+    final hasError = uri.queryParameters.containsKey('error') && uri.queryParameters['error']!.isNotEmpty;
+    final hasToken = uri.queryParameters.containsKey('token') && uri.queryParameters['token']!.isNotEmpty;
+    return hasAuthCode || hasStatus || hasError || hasToken;
+  }
 }
 
 class GoogleOAuthResult {
@@ -209,6 +221,10 @@ class GoogleOAuthFlowService {
     required AuthProvider authProvider,
     required GlobalKey<NavigatorState> navigatorKey,
   }) async {
+    if (!GoogleOAuthConfig.looksLikeOAuthCallback(uri)) {
+      return;
+    }
+
     final errorMessage = uri.queryParameters['error_description'] ??
         uri.queryParameters['error'] ??
         uri.queryParameters['message'];

@@ -45,6 +45,16 @@ void main() {
       expect(loginUrl, isNot(contains('nonce=')));
     });
 
+    test('ignores normal startup routes but recognizes real OAuth callbacks', () {
+      final normalRoute = Uri.parse('http://localhost:63988/home');
+      final startupHashRoute = Uri.parse('http://localhost:63988/#/home');
+      final callbackRoute = Uri.parse('http://localhost:63988/auth/callback?code=abc&status=success');
+
+      expect(GoogleOAuthConfig.looksLikeOAuthCallback(normalRoute), isFalse);
+      expect(GoogleOAuthConfig.looksLikeOAuthCallback(startupHashRoute), isFalse);
+      expect(GoogleOAuthConfig.looksLikeOAuthCallback(callbackRoute), isTrue);
+    });
+
     test('serializes and restores pending navigation state', () {
       const pending = PendingAuthNavigation(
         route: '/checkout',

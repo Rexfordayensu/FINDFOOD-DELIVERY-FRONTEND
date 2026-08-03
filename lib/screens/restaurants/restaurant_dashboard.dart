@@ -10,11 +10,8 @@ import '../../models/models.dart';
 import '../../services/api_service.dart';
 import '../../services/providers.dart';
 import '../customer/food_feed_screen.dart';
-<<<<<<< HEAD
-=======
 import 'package:findfood_app/screens/chat_screen.dart';
 import 'package:http/http.dart' as http;
->>>>>>> 57ec94359be16d3537db6135e2f0e2b7aa49a7c7
 
 class RestaurantDashboard extends StatefulWidget {
   const RestaurantDashboard({super.key, required String token});
