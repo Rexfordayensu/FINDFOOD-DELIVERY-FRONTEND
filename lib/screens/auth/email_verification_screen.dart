@@ -1,16 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import '../../theme.dart';
 import '../../services/api_service.dart';
 import '../../services/providers.dart';
 import '../../services/otp_provider.dart';
 import '../../widgets/otp_input_widget.dart';
-import '../splash_screen.dart';
-import '../customer/food_feed_screen.dart';
-import '../rider/rider_dashboard.dart';
-import '../restaurants/restaurant_dashboard.dart';
-import '../restaurant/restaurant_pending_approval_screen.dart';
-import '../admin/admin_dashboard.dart';
 
 enum VerificationMode { registration, login }
 
@@ -34,7 +29,6 @@ class EmailVerificationScreen extends StatefulWidget {
 class _EmailVerificationScreenState extends State<EmailVerificationScreen>
     with WidgetsBindingObserver {
   late TextEditingController _otpController;
-  String _successMessage = '';
   bool _showSuccess = false;
 
   @override
@@ -89,9 +83,7 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen>
           authProvider.setEmail(widget.email);
         }
 
-        // Show success animation
         setState(() {
-          _successMessage = 'Email verified successfully!';
           _showSuccess = true;
         });
 
@@ -111,7 +103,6 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen>
 
         // Expected: access_token, refresh_token?, role, user_id, is_approved?
         final token = data['access_token'] as String?;
-        final refresh = data['refresh_token'] as String?;
         final role = data['role'] as String? ?? widget.role;
         final userId = (data['user_id'] is int) ? data['user_id'] as int : int.tryParse('${data['user_id']}') ?? 0;
         final isApproved = data['is_approved'] as bool? ?? false;
@@ -133,9 +124,7 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen>
         // Clear OTP from memory
         _otpController.clear();
 
-        // Show success animation
         setState(() {
-          _successMessage = 'Logged in successfully!';
           _showSuccess = true;
         });
 
@@ -192,36 +181,20 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen>
 
   void _navigateToNextScreen([String? overrideRole]) {
     final role = overrideRole ?? widget.role;
-    Widget destination;
-
-    switch (role) {
-      case 'customer':
-        destination = const FoodFeedScreen();
-        break;
-      case 'rider':
-        destination = const RiderDashboard();
-        break;
-      case 'restaurant':
-        final auth = Provider.of<AuthProvider>(context, listen: false);
-        if (auth.isRestaurantApproved) {
-          destination = RestaurantDashboard(token: auth.token ?? '');
-        } else {
-          destination = const RestaurantPendingApprovalScreen();
-        }
-        break;
-      case 'admin':
-        destination = const AdminDashboard();
-        break;
-      default:
-        destination = const FoodFeedScreen();
+    if (widget.mode == VerificationMode.registration) {
+      context.go('/login');
+      return;
     }
 
-    Navigator.of(context).pushAndRemoveUntil(
-      MaterialPageRoute(
-        builder: (_) => SplashScreen(destination: destination),
-      ),
-      (_) => false,
-    );
+    final route = switch (role) {
+      'restaurant' => Provider.of<AuthProvider>(context, listen: false).isRestaurantApproved
+          ? '/restaurant/orders'
+          : '/restaurant/pending',
+      'rider' => '/rider',
+      'admin' => '/admin',
+      _ => '/',
+    };
+    context.go(route);
   }
 
   void _showErrorSnackBar(String message) {
@@ -254,8 +227,8 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen>
 
   @override
   Widget build(BuildContext context) {
-    return WillPopScope(
-      onWillPop: () async => false, // Prevent back navigation
+    return PopScope(
+      canPop: false,
       child: Scaffold(
         resizeToAvoidBottomInset: true,
         body: Consumer<OtpProvider>(

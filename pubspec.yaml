@@ -20,6 +20,7 @@ dependencies:
   flutter_secure_storage: ^10.3.1
   flutter_web_plugins:
     sdk: flutter
+  go_router: 16.2.4
 
 dev_dependencies:
   flutter_test:

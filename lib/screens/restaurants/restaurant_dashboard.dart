@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:typed_data';
-import 'package:findfood_app/screens/chat_screen.dart';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import '../../theme.dart';
@@ -9,63 +9,18 @@ import '../../widgets/widgets.dart';
 import '../../models/models.dart';
 import '../../services/api_service.dart';
 import '../../services/providers.dart';
-import '../customer/food_feed_screen.dart';
-import 'package:findfood_app/screens/chat_screen.dart';
-import 'package:http/http.dart' as http;
 
 class RestaurantDashboard extends StatefulWidget {
-  const RestaurantDashboard({super.key, required String token});
+  const RestaurantDashboard({super.key, required this.token, this.initialIndex = 0});
+
+  final String token;
+  final int initialIndex;
   @override
   State<RestaurantDashboard> createState() => _RestaurantDashboardState();
 }
 
 class _RestaurantDashboardState extends State<RestaurantDashboard> {
-  int _selectedIndex = 0;
-
-Future<void> _uploadRestaurantBanner(int restaurantId) async {
-  final picker = ImagePicker();
-  final picked = await picker.pickImage(
-    source: ImageSource.gallery,
-    imageQuality: 85,
-  );
-
-  if (picked == null) return;
-
-  try {
-    var request = http.MultipartRequest(
-      'POST',
-      Uri.parse('${ApiService.baseUrl}/restaurants/$restaurantId/upload-banner'),
-    );
-    
-    // Add auth token header if your endpoints require authentication
-   // request.headers['Authorization'] = 'Bearer ${widget.token}';
-
-    request.files.add(await http.MultipartFile.fromPath('file', picked.path));
-
-    var streamedResponse = await request.send();
-    var response = await http.Response.fromStream(streamedResponse);
-
-    if (response.statusCode == 200) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Restaurant banner updated successfully! 🎉'),
-          backgroundColor: Colors.green,
-        ),
-      );
-      // Refresh dashboard state if needed
-      setState(() {});
-    } else {
-      throw Exception('Upload failed with status: ${response.statusCode}');
-    }
-  } catch (e) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Failed to upload banner: $e'),
-        backgroundColor: Colors.redAccent,
-      ),
-    );
-  }
-}
+  late int _selectedIndex;
 
   // ── Approval gate state ────────────────────────────────────────────────
   bool _checking = true;
@@ -77,6 +32,7 @@ Future<void> _uploadRestaurantBanner(int restaurantId) async {
   @override
   void initState() {
     super.initState();
+    _selectedIndex = widget.initialIndex;
     _checkApproval();
   }
 
@@ -169,7 +125,7 @@ Future<void> _uploadRestaurantBanner(int restaurantId) async {
         ),
         child: BottomNavigationBar(
           currentIndex: _selectedIndex,
-          onTap: (i) => setState(() => _selectedIndex = i),
+          onTap: (i) => context.go('/restaurant/${['orders', 'menu', 'earnings', 'settings'][i]}'),
           items: const [
             BottomNavigationBarItem(
                 icon: Icon(Icons.receipt_long_outlined),
@@ -264,11 +220,7 @@ class _PendingApprovalScreen extends StatelessWidget {
               TextButton(
                 onPressed: () {
                   Provider.of<AuthProvider>(context, listen: false).logout();
-                  Navigator.pushAndRemoveUntil(
-                    context,
-                    MaterialPageRoute(builder: (_) => const FoodFeedScreen()),
-                    (_) => false,
-                  );
+                  context.go('/');
                 },
                 child: Text('Sign out',
                     style: TextStyle(
@@ -295,7 +247,6 @@ class _OrdersPageState extends State<_OrdersPage> {
   String _error   = '';
   String _filter  = 'all';
   Timer? _pollTimer;
-  int    _newOrderCount = 0;
 
   final _filters = ['all', 'pending', 'preparing', 'ready', 'delivered'];
 
@@ -334,10 +285,7 @@ class _OrdersPageState extends State<_OrdersPage> {
       final orders = await ApiService.getMyOrders(auth.token!);
       final prevCount = _orders.where((o) => o.status == 'pending').length;
       final newCount  = orders.where((o) => o.status == 'pending').length;
-      setState(() {
-        _orders = orders;
-        _newOrderCount = newCount;
-      });
+      setState(() => _orders = orders);
       // Notify if new pending orders arrived
       if (newCount > prevCount && mounted) {
         _showNewOrderBanner(newCount - prevCount);
@@ -658,14 +606,9 @@ class _OrderCard extends StatelessWidget {
                     ]),
                     Row(children: [
                       GestureDetector(
-                        onTap: () => Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => ChatScreen(
-                              orderId: order.id,
-                              otherPartyName: 'Customer', otherPartyRole: 'customer',
-                            ),
-                          ),
+                        onTap: () => context.push(
+                          '/chat/${order.id}',
+                          extra: const {'name': 'Customer', 'role': 'customer'},
                         ),
                         child: Container(
                           padding: const EdgeInsets.all(6),
@@ -1066,6 +1009,8 @@ class _MenuManagerPageState extends State<_MenuManagerPage> {
                     return;
                   }
                   set(() => saving = true);
+                  final messenger = ScaffoldMessenger.maybeOf(context);
+                  final navigator = Navigator.of(context);
                   try {
                     // 1. Create the menu item first
                     var item = await ApiService.addMenuItem(
@@ -1089,21 +1034,24 @@ class _MenuManagerPageState extends State<_MenuManagerPage> {
                     }
 
                     if (!mounted) return;
-                    Navigator.pop(ctx);
+                    if (navigator.canPop()) {
+                      navigator.pop();
+                    }
                     setState(() => _items.insert(0, item));
-                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                    messenger?.showSnackBar(const SnackBar(
                       backgroundColor: AppTheme.success,
                       content: Text('Item added!',
                           style: TextStyle(color: Colors.white)),
                     ));
                   } catch (e) {
-                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                    if (!mounted) return;
+                    messenger?.showSnackBar(SnackBar(
                       backgroundColor: AppTheme.danger,
                       content: Text(e.toString().replaceAll('Exception: ', ''),
                           style: const TextStyle(color: Colors.white)),
                     ));
                   } finally {
-                    set(() => saving = false);
+                    if (mounted) set(() => saving = false);
                   }
                 },
               ),
@@ -1286,6 +1234,8 @@ class _MenuManagerPageState extends State<_MenuManagerPage> {
                     return;
                   }
                   set(() => saving = true);
+                  final messenger = ScaffoldMessenger.maybeOf(context);
+                  final navigator = Navigator.of(context);
                   try {
                     var updated = await ApiService.updateMenuItem(
                       token: auth.token!,
@@ -1317,24 +1267,27 @@ class _MenuManagerPageState extends State<_MenuManagerPage> {
                     }
 
                     if (!mounted) return;
-                    Navigator.pop(ctx);
+                    if (navigator.canPop()) {
+                      navigator.pop();
+                    }
                     setState(() {
                       final idx = _items.indexWhere((m) => m.id == item.id);
                       if (idx != -1) _items[idx] = updated;
                     });
-                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                    messenger?.showSnackBar(const SnackBar(
                       backgroundColor: AppTheme.success,
                       content: Text('Item updated!',
                           style: TextStyle(color: Colors.white)),
                     ));
                   } catch (e) {
-                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                    if (!mounted) return;
+                    messenger?.showSnackBar(SnackBar(
                       backgroundColor: AppTheme.danger,
                       content: Text(e.toString().replaceAll('Exception: ', ''),
                           style: const TextStyle(color: Colors.white)),
                     ));
                   } finally {
-                    set(() => saving = false);
+                    if (mounted) set(() => saving = false);
                   }
                 },
               ),
@@ -1347,6 +1300,8 @@ class _MenuManagerPageState extends State<_MenuManagerPage> {
 
   // ── DELETE ────────────────────────────────────────────────────────────────
   Future<void> _confirmDelete(MenuItem item) async {
+    final auth = Provider.of<AuthProvider>(context, listen: false);
+    final messenger = ScaffoldMessenger.maybeOf(context);
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -1371,7 +1326,6 @@ class _MenuManagerPageState extends State<_MenuManagerPage> {
     );
     if (confirmed != true) return;
 
-    final auth = Provider.of<AuthProvider>(context, listen: false);
     setState(() => _processingIds.add(item.id));
     try {
       await ApiService.deleteMenuItem(
@@ -1380,14 +1334,14 @@ class _MenuManagerPageState extends State<_MenuManagerPage> {
       );
       setState(() => _items.removeWhere((m) => m.id == item.id));
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+      messenger?.showSnackBar(const SnackBar(
         backgroundColor: AppTheme.danger,
         content: Text('Item deleted',
             style: TextStyle(color: Colors.white)),
       ));
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      messenger?.showSnackBar(SnackBar(
         backgroundColor: AppTheme.danger,
         content: Text(e.toString().replaceAll('Exception: ', ''),
             style: const TextStyle(color: Colors.white)),
@@ -1400,6 +1354,7 @@ class _MenuManagerPageState extends State<_MenuManagerPage> {
   // ── TOGGLE AVAILABILITY ──────────────────────────────────────────────────
   Future<void> _toggleAvailability(MenuItem item) async {
     final auth = Provider.of<AuthProvider>(context, listen: false);
+    final messenger = ScaffoldMessenger.maybeOf(context);
     setState(() => _processingIds.add(item.id));
     try {
       final updated = await ApiService.toggleMenuItemAvailability(
@@ -1413,7 +1368,7 @@ class _MenuManagerPageState extends State<_MenuManagerPage> {
       });
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      messenger?.showSnackBar(SnackBar(
         backgroundColor: AppTheme.danger,
         content: Text(e.toString().replaceAll('Exception: ', ''),
             style: const TextStyle(color: Colors.white)),
@@ -2026,7 +1981,7 @@ class _RevenueBarChart extends StatelessWidget {
 // ─── SETTINGS PAGE ────────────────────────────────────────────────────────────
 class _SettingsPage extends StatefulWidget {
   final int restaurantId;
-  const _SettingsPage({Key? key, required this.restaurantId}) : super(key: key);
+  const _SettingsPage({required this.restaurantId});
   @override
   State<_SettingsPage> createState() => _SettingsPageState();
 }
@@ -2035,7 +1990,10 @@ class _SettingsPageState extends State<_SettingsPage> {
 
   bool _isOpen = true;
 
-Future<void> _uploadRestaurantBanner(int restaurantId) async {
+Future<void> _uploadRestaurantBanner({
+  required String token,
+  required int restaurantId,
+}) async {
   final picker = ImagePicker();
   final picked = await picker.pickImage(
     source: ImageSource.gallery,
@@ -2045,36 +2003,21 @@ Future<void> _uploadRestaurantBanner(int restaurantId) async {
   if (picked == null) return;
 
   try {
-    // Matches http://127.0.0.1:8000/3/upload-banner
-    var request = http.MultipartRequest(
-      'POST',
-      Uri.parse('${ApiService.baseUrl}/$restaurantId/upload-banner'),
+    final bytes = await picked.readAsBytes();
+    await ApiService.uploadRestaurantBanner(
+      token: token,
+      restaurantId: restaurantId,
+      imageBytes: bytes,
+      filename: picked.name,
     );
 
-    final bytes = await picked.readAsBytes();
-
-    request.files.add(
-      http.MultipartFile.fromBytes(
-        'file', // Matches the required 'file' parameter in Swagger
-        bytes,
-        filename: picked.name,
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Banner updated successfully!'),
+        backgroundColor: Colors.green,
       ),
     );
-
-    var streamedResponse = await request.send();
-    var response = await http.Response.fromStream(streamedResponse);
-
-    if (response.statusCode == 200 || response.statusCode == 201) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Banner updated successfully! 🎉'),
-          backgroundColor: Colors.green,
-        ),
-      );
-    } else {
-      throw Exception('Upload failed with status: ${response.statusCode}');
-    }
   } catch (e) {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
@@ -2111,8 +2054,11 @@ Future<void> _uploadRestaurantBanner(int restaurantId) async {
 // Banner Upload Button
 ElevatedButton.icon(
   onPressed: () {
-    if (widget.restaurantId > 0) {
-  _uploadRestaurantBanner(widget.restaurantId);
+    if (widget.restaurantId > 0 && auth.token != null) {
+  _uploadRestaurantBanner(
+    token: auth.token!,
+    restaurantId: widget.restaurantId,
+  );
 } else {
   ScaffoldMessenger.of(context).showSnackBar(
     const SnackBar(content: Text('Loading restaurant info...')),
@@ -2177,12 +2123,7 @@ ElevatedButton.icon(
                 label: 'Sign out',
                 onPressed: () {
                   auth.logout();
-                  Navigator.pushAndRemoveUntil(
-                    context,
-                    MaterialPageRoute(
-                        builder: (_) => const FoodFeedScreen()),
-                    (_) => false,
-                  );
+                  context.go('/');
                 },
               ),
             ],

@@ -5,11 +5,11 @@ import 'package:app_links/app_links.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 
 import '../../services/api_service.dart';
 import '../../services/providers.dart';
-import '../../utils/web_url_helper.dart';
 
 class PendingAuthNavigation {
   const PendingAuthNavigation({
@@ -369,35 +369,34 @@ class GoogleOAuthFlowService {
     required GlobalKey<NavigatorState> navigatorKey,
     String? returnRoute,
   }) {
-    final navigation = navigatorKey.currentState;
-    final context = navigatorKey.currentContext;
-    if (navigation == null || context == null || !context.mounted) {
-      return;
-    }
-
     Future<void>.microtask(() async {
+      final context = navigatorKey.currentContext;
+      if (context == null || !context.mounted) {
+        return;
+      }
+
       final pending = await readPendingNavigation();
       final fallbackRoute = _routeForRole(authProvider.role);
       final targetRoute = pending?.route ?? returnRoute ?? fallbackRoute;
       final normalizedRoute = _normalizeRouteName(targetRoute);
       final arguments = pending?.parameters.isEmpty == false ? pending!.parameters : null;
 
-      if (kIsWeb) {
-        await replaceBrowserUrl(normalizedRoute);
+      if (!context.mounted) {
+        return;
       }
 
-      navigation.pushNamedAndRemoveUntil(normalizedRoute, (route) => false, arguments: arguments);
+      GoRouter.of(context).go(normalizedRoute, extra: arguments);
     });
   }
 
   static String _routeForRole(String? role) {
     switch ((role ?? '').toLowerCase()) {
       case 'admin':
-        return '/admin-dashboard';
+        return '/admin';
       case 'restaurant':
-        return '/restaurant-dashboard';
+        return '/restaurant/orders';
       case 'rider':
-        return '/rider-dashboard';
+        return '/rider';
       default:
         return '/home';
     }
@@ -415,10 +414,15 @@ class GoogleOAuthFlowService {
       '/reset-password' => '/home',
       '/checkout' => '/checkout',
       '/cart' => '/cart',
-      '/home' => '/home',
-      '/admin-dashboard' => '/admin-dashboard',
-      '/restaurant-dashboard' => '/restaurant-dashboard',
-      '/rider-dashboard' => '/rider-dashboard',
+      '/home' => '/',
+      '/admin' => '/admin',
+      '/restaurant/orders' => '/restaurant/orders',
+      '/restaurant/menu' => '/restaurant/menu',
+      '/restaurant/earnings' => '/restaurant/earnings',
+      '/restaurant/settings' => '/restaurant/settings',
+      '/rider' => '/rider',
+      '/orders' => '/orders',
+      '/profile' => '/profile',
       _ => '/home',
     };
   }

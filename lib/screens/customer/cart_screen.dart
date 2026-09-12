@@ -1,13 +1,12 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import '../../theme.dart';
 import '../../widgets/widgets.dart';
 import '../../services/api_service.dart';
 import '../../services/providers.dart';
 import '../../models/models.dart';
-import '../auth/login_screen.dart';
-import 'order_tracking_screen.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 
 class CartScreen extends StatefulWidget {
@@ -51,9 +50,7 @@ class _CartScreenState extends State<CartScreen> {
           if (!mounted) return;
 
           setState(() => _hasNavigatedToTracking = true);
-          Navigator.of(context).pushReplacement(
-            MaterialPageRoute(builder: (_) => OrderTrackingScreen(order: order)),
-          );
+          context.go('/order-tracking/${order.id}', extra: order);
         }
       } catch (_) {
         // Keep polling until the backend confirms payment success.
@@ -75,15 +72,7 @@ class _CartScreenState extends State<CartScreen> {
     final cart = Provider.of<CartProvider>(context, listen: false);
 
     if (!auth.isLoggedIn) {
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (_) => const LoginScreen(
-            returnRoute: '/cart',
-            pendingAction: 'continue_checkout',
-          ),
-        ),
-      );
+      context.go('/login?returnTo=%2Fcart');
       return;
     }
 

@@ -37,6 +37,9 @@ String _extractMessage(Map<String, dynamic> data, String fallback) {
   return fallback;
 }
 
+bool otpRequiredFromResponse(Map<String, dynamic> data) =>
+    data['otp_required'] as bool? ?? true;
+
 class ApiService {
   static const String baseUrl = 'http://localhost:8000';
 
@@ -69,10 +72,7 @@ class ApiService {
     final response = await http.post(
       Uri.parse('$baseUrl/login'),
       headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-      body:{
-        'username': email, 
-        'password': password
-        },
+      body: {'username': email, 'password': password},
     );
     final data = _decode(response);
 
@@ -97,7 +97,8 @@ class ApiService {
     );
   }
 
-  static Future<Map<String, dynamic>> exchangeGoogleOAuthCode(String code) async {
+  static Future<Map<String, dynamic>> exchangeGoogleOAuthCode(
+      String code) async {
     final response = await http.post(
       Uri.parse('$baseUrl/auth/google/exchange'),
       headers: {'Content-Type': 'application/json'},
@@ -113,38 +114,38 @@ class ApiService {
   }
 
   static Future<Map<String, dynamic>> register({
-  required String name,
-  required String email,
-  required String password,
-  required String role,
-  required String cuisineType, // Strictly required parameter
-  required String address,     // Strictly required parameter
-}) async {
-  // 1. Build the baseline request body
-  final Map<String, dynamic> requestBody = {
-    'name': name,
-    'email': email,
-    'password': password,
-    'role': role,
-  };
+    required String name,
+    required String email,
+    required String password,
+    required String role,
+    required String cuisineType, // Strictly required parameter
+    required String address, // Strictly required parameter
+  }) async {
+    // 1. Build the baseline request body
+    final Map<String, dynamic> requestBody = {
+      'name': name,
+      'email': email,
+      'password': password,
+      'role': role,
+    };
 
-  // 2. Only expose/send these fields to the backend if registering a restaurant
-  if (role == 'restaurant' || role == 'vendor') {
-    requestBody['cuisine_type'] = cuisineType;
-    requestBody['address'] = address;
+    // 2. Only expose/send these fields to the backend if registering a restaurant
+    if (role == 'restaurant' || role == 'vendor') {
+      requestBody['cuisine_type'] = cuisineType;
+      requestBody['address'] = address;
+    }
+
+    // 3. Make the API call
+    final response = await http.post(
+      Uri.parse('$baseUrl/register'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode(requestBody),
+    );
+
+    final data = _decode(response);
+    if (response.statusCode == 201) return data;
+    throw Exception(data['detail'] ?? 'Registration failed');
   }
-
-  // 3. Make the API call
-  final response = await http.post(
-    Uri.parse('$baseUrl/register'),
-    headers: {'Content-Type': 'application/json'},
-    body: jsonEncode(requestBody),
-  );
-
-  final data = _decode(response);
-  if (response.statusCode == 201) return data;
-  throw Exception(data['detail'] ?? 'Registration failed');
-}
 
   // ── FORGOT / RESET PASSWORD ───────────────────────────────────────────────
 
@@ -163,12 +164,14 @@ class ApiService {
 
     final data = _decode(response);
     if (response.statusCode >= 200 && response.statusCode < 300) {
-      return _extractMessage(data, 'If the account exists, a password reset link has been sent.');
+      return _extractMessage(
+          data, 'If the account exists, a password reset link has been sent.');
     }
 
     throw PasswordResetException(
       data['code']?.toString() ?? 'forgot_password_failed',
-      _extractMessage(data, 'Unable to process the password reset request right now.'),
+      _extractMessage(
+          data, 'Unable to process the password reset request right now.'),
     );
   }
 
@@ -185,7 +188,8 @@ class ApiService {
 
     final data = _decode(response);
     if (response.statusCode >= 200 && response.statusCode < 300) {
-      return _extractMessage(data, 'Password reset successfully. You can now sign in.');
+      return _extractMessage(
+          data, 'Password reset successfully. You can now sign in.');
     }
 
     throw PasswordResetException(
@@ -199,9 +203,7 @@ class ApiService {
   static Future<List<Restaurant>> getRestaurants() async {
     final response = await http.get(Uri.parse('$baseUrl/restaurants'));
     if (response.statusCode == 200) {
-      return _decodeList(response)
-          .map((r) => Restaurant.fromJson(r))
-          .toList();
+      return _decodeList(response).map((r) => Restaurant.fromJson(r)).toList();
     }
     throw Exception('Failed to load restaurants (${response.statusCode})');
   }
@@ -236,12 +238,10 @@ class ApiService {
   // ── MENU ──────────────────────────────────────────────────────────────────
 
   static Future<List<MenuItem>> getMenu(int restaurantId) async {
-    final response = await http.get(
-        Uri.parse('$baseUrl/restaurants/$restaurantId/menu'));
+    final response =
+        await http.get(Uri.parse('$baseUrl/restaurants/$restaurantId/menu'));
     if (response.statusCode == 200) {
-      return _decodeList(response)
-          .map((m) => MenuItem.fromJson(m))
-          .toList();
+      return _decodeList(response).map((m) => MenuItem.fromJson(m)).toList();
     }
     throw Exception('Failed to load menu (${response.statusCode})');
   }
@@ -253,7 +253,7 @@ class ApiService {
     required String? description,
     required dynamic price,
   }) async {
-    // FIX: Passing fields directly into the URI query string parameters 
+    // FIX: Passing fields directly into the URI query string parameters
     // to satisfy the backend validation requiring 'menu_input' in the query location.
     final response = await http.post(
       Uri.parse('$baseUrl/restaurants/$restaurantId/menu'
@@ -270,10 +270,10 @@ class ApiService {
       final data = _decode(response);
       return MenuItem.fromJson(data);
     } else {
-      throw Exception('Failed to add item (${response.statusCode}): ${response.body}');
+      throw Exception(
+          'Failed to add item (${response.statusCode}): ${response.body}');
     }
   }
-  
 
   // ── ORDERS ────────────────────────────────────────────────────────────────
 
@@ -301,18 +301,13 @@ class ApiService {
       headers: {'Authorization': 'Bearer $token'},
     );
     if (response.statusCode == 200) {
-      return _decodeList(response)
-          .map((o) => Order.fromJson(o))
-          .toList();
+      return _decodeList(response).map((o) => Order.fromJson(o)).toList();
     }
     throw Exception('Failed to load orders (${response.statusCode})');
   }
 
   static Future<Order> updateOrderStatus(
-    String token,
-    int orderId,
-    String newStatus)
-   async {
+      String token, int orderId, String newStatus) async {
     final url = Uri.parse('$baseUrl/orders/$orderId/status').replace(
       queryParameters: {
         'new_status': newStatus,
@@ -342,9 +337,7 @@ class ApiService {
       headers: {'Authorization': 'Bearer $token'},
     );
     if (response.statusCode == 200) {
-      return _decodeList(response)
-          .map((o) => Order.fromJson(o))
-          .toList();
+      return _decodeList(response).map((o) => Order.fromJson(o)).toList();
     }
     throw Exception('Failed to load deliveries (${response.statusCode})');
   }
@@ -389,7 +382,8 @@ class ApiService {
       throw Exception('The selected payment method is not available.');
     }
     if (response.statusCode >= 500) {
-      throw Exception('Payment service is currently unavailable. Please try again shortly.');
+      throw Exception(
+          'Payment service is currently unavailable. Please try again shortly.');
     }
 
     throw Exception(data['detail'] ?? 'Failed to initialize payment');
@@ -423,8 +417,7 @@ class ApiService {
     throw Exception('Failed to load pending restaurants');
   }
 
-  static Future<void> approveRestaurant(
-      String token, int restaurantId) async {
+  static Future<void> approveRestaurant(String token, int restaurantId) async {
     final response = await http.put(
       Uri.parse('$baseUrl/admin/restaurants/$restaurantId/approve'),
       headers: {'Authorization': 'Bearer $token'},
@@ -435,8 +428,7 @@ class ApiService {
     }
   }
 
-  static Future<void> rejectRestaurant(
-      String token, int restaurantId) async {
+  static Future<void> rejectRestaurant(String token, int restaurantId) async {
     final response = await http.delete(
       Uri.parse('$baseUrl/admin/restaurants/$restaurantId'),
       headers: {'Authorization': 'Bearer $token'},
@@ -447,8 +439,7 @@ class ApiService {
     }
   }
 
-  static Future<List<Map<String, dynamic>>> getAllUsers(
-      String token) async {
+  static Future<List<Map<String, dynamic>>> getAllUsers(String token) async {
     final response = await http.get(
       Uri.parse('$baseUrl/admin/users'),
       headers: {'Authorization': 'Bearer $token'},
@@ -459,8 +450,7 @@ class ApiService {
     throw Exception('Failed to load users');
   }
 
-  static Future<Map<String, dynamic>> getPlatformStats(
-      String token) async {
+  static Future<Map<String, dynamic>> getPlatformStats(String token) async {
     final response = await http.get(
       Uri.parse('$baseUrl/admin/stats'),
       headers: {'Authorization': 'Bearer $token'},
@@ -514,7 +504,8 @@ class ApiService {
     required int itemId,
     required String name,
     required String? description,
-    required int price, required int restaurantId,
+    required int price,
+    required int restaurantId,
   }) async {
     final response = await http.put(
       Uri.parse('$baseUrl/menu/$itemId'),
@@ -540,23 +531,21 @@ class ApiService {
     throw Exception(data['detail'] ?? 'Failed to toggle item');
   }
 
-  static Future<void> deleteMenuItem(String token, int itemId)  async {
+  static Future<void> deleteMenuItem(String token, int itemId) async {
     final url = Uri.parse('http://localhost:8000/menu/$itemId');
-   
+
     final response = await http.delete(
-     url,
+      url,
       headers: {
-        
         'Content-Type': 'application/json',
         'Authorization': 'Bearer $token'
-        },
+      },
     );
     if (response.statusCode != 200) {
-       _decode(response);
-     throw Exception("Backend error: ${response.body}");
+      _decode(response);
+      throw Exception("Backend error: ${response.body}");
+    }
   }
-}
-
 
   // ── ANALYTICS ─────────────────────────────────────────────────────────────
   static Future<Map<String, dynamic>> getRestaurantAnalytics(
@@ -785,8 +774,11 @@ class ApiService {
     throw Exception(data['detail'] ?? 'Failed to check payment status');
   }
 
-  static Future<void> updateNotificationPrefs
-  ({required String token, required bool emailNotifications, required bool pushNotifications, required bool orderAlerts}) async {}
+  static Future<void> updateNotificationPrefs(
+      {required String token,
+      required bool emailNotifications,
+      required bool pushNotifications,
+      required bool orderAlerts}) async {}
 
   static Future<Map<String, dynamic>> getNotificationPrefs(String token) async {
     final response = await http.get(
@@ -795,11 +787,11 @@ class ApiService {
     );
     final data = _decode(response);
     if (response.statusCode == 200) return data;
-    throw Exception(data['detail'] ?? 'Failed to load notification preferences');
+    throw Exception(
+        data['detail'] ?? 'Failed to load notification preferences');
   }
 
-  
-static Future<void> changeMyPassword({
+  static Future<void> changeMyPassword({
     required String token,
     required String currentPassword,
     required String newPassword,
@@ -816,7 +808,6 @@ static Future<void> changeMyPassword({
     }
   }
 
-  
   static Future<Map<String, dynamic>> updateMyProfile({
     required String token,
     required String name,
@@ -832,7 +823,7 @@ static Future<void> changeMyPassword({
     if (response.statusCode == 200) return data;
     throw Exception(data['detail'] ?? 'Failed to update profile');
   }
-  
+
   static Future<Map<String, dynamic>> getMyProfile(String token) async {
     final response = await http.get(
       Uri.parse('$baseUrl/user/profile'),
@@ -843,44 +834,79 @@ static Future<void> changeMyPassword({
     throw Exception(data['detail'] ?? 'Failed to load profile');
   }
 
-  static Future<Object?> toggleMenuItemAvailability({required String token, required int restaurantId, required int itemId}) async {
+  static Future<Object?> toggleMenuItemAvailability(
+      {required String token,
+      required int restaurantId,
+      required int itemId}) async {
     return null;
   }
 
-  static Future<void> removeMenuItemImage({required String token, required int restaurantId, required int itemId}) async {}
+  static Future<void> removeMenuItemImage(
+      {required String token,
+      required int restaurantId,
+      required int itemId}) async {}
 
-  static Future<MenuItem> uploadMenuItemImage({
-    required String token, 
-    required int restaurantId, 
-    required int itemId,
-     required Uint8List imageBytes, 
-     required String filename}) async {
+  static Future<MenuItem> uploadMenuItemImage(
+      {required String token,
+      required int restaurantId,
+      required int itemId,
+      required Uint8List imageBytes,
+      required String filename}) async {
+    final url = Uri.parse(
+        '$baseUrl/restaurants/$restaurantId/menu/$itemId/upload-image');
+    final request = http.MultipartRequest('POST', url)
+      ..headers['Authorization'] = 'Bearer \$token'
+      // ignore: avoid_single_cascade_in_expression_statements
+      ..files.add(
+        http.MultipartFile.fromBytes(
+          'file', // Must match the name parameter expected by your FastAPI backend (e.g., File(...))
+          imageBytes,
+          filename: filename,
+          contentType: null,
+        ),
+      );
 
-     final url = Uri.parse('$baseUrl/restaurants/$restaurantId/menu/$itemId/upload-image'); 
-     final request = http.MultipartRequest('POST', url)
-     ..headers['Authorization'] = 'Bearer \$token'
-     // ignore: avoid_single_cascade_in_expression_statements
-     ..files.add(
-      http.MultipartFile.fromBytes(
-        'file', // Must match the name parameter expected by your FastAPI backend (e.g., File(...))
-        imageBytes,
-        filename: filename,
-        contentType: null,
-      ),
-    );
+    final streamedResponse = await request.send();
+    final response = await http.Response.fromStream(streamedResponse);
 
-  final streamedResponse = await request.send();
-  final response = await http.Response.fromStream(streamedResponse);
-
-  if (response.statusCode == 200 || response.statusCode == 201) {
-    final Map<String, dynamic> data = json.decode(response.body);
-    return MenuItem.fromJson(data); // This fulfills the promise to return a MenuItem
-  } else {
-    throw Exception('Failed to upload image: \${response.body}');
+    if (response.statusCode == 200 || response.statusCode == 201) {
+      final Map<String, dynamic> data = json.decode(response.body);
+      return MenuItem.fromJson(
+          data); // This fulfills the promise to return a MenuItem
+    } else {
+      throw Exception('Failed to upload image: \${response.body}');
+    }
   }
-}
 
-static Future<Map<String, dynamic>> getRevenueDetails(String token) async {
+  static Future<Map<String, dynamic>> uploadRestaurantBanner({
+    required String token,
+    required int restaurantId,
+    required Uint8List imageBytes,
+    required String filename,
+  }) async {
+    final request = http.MultipartRequest(
+      'POST',
+      Uri.parse('$baseUrl/restaurants/$restaurantId/upload-banner'),
+    )
+      ..headers['Authorization'] = 'Bearer $token'
+      ..files.add(
+        http.MultipartFile.fromBytes(
+          'file',
+          imageBytes,
+          filename: filename,
+        ),
+      );
+
+    final streamedResponse = await request.send();
+    final response = await http.Response.fromStream(streamedResponse);
+    final data = _decode(response);
+
+    if (response.statusCode == 200) return data;
+    throw Exception(data['detail'] ?? data['message'] ??
+        'Failed to upload restaurant banner');
+  }
+
+  static Future<Map<String, dynamic>> getRevenueDetails(String token) async {
     final response = await http.get(
       Uri.parse('$baseUrl/admin/revenue'),
       headers: {'Authorization': 'Bearer $token'},
@@ -890,7 +916,7 @@ static Future<Map<String, dynamic>> getRevenueDetails(String token) async {
     throw Exception(data['detail'] ?? 'Failed to load revenue details');
   }
 
-static Future<List<Map<String, dynamic>>> getAllOrdersAdmin(
+  static Future<List<Map<String, dynamic>>> getAllOrdersAdmin(
       String token) async {
     final response = await http.get(
       Uri.parse('$baseUrl/admin/orders'),
@@ -903,69 +929,64 @@ static Future<List<Map<String, dynamic>>> getAllOrdersAdmin(
   }
 
   static Future<Object?> sendMessage({
-  required String token, 
-  required int orderId, 
-  required String content,
-}) async {
-  final url = Uri.parse("http://localhost:8000/orders/$orderId/messages");
+    required String token,
+    required int orderId,
+    required String content,
+  }) async {
+    final url = Uri.parse("http://localhost:8000/orders/$orderId/messages");
 
-  try {
-    final response = await http.post(
-      url,
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": "Bearer $token",
-      },
-      body: jsonEncode({
-        "message": content,
-      }),
-    );
+    try {
+      final response = await http.post(
+        url,
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer $token",
+        },
+        body: jsonEncode({
+          "message": content,
+        }),
+      );
 
-    // 1. Log the status and body so we can see exactly what's happening
-    print("Response Status: ${response.statusCode}");
-    print("Response Body: ${response.body}");
+      debugPrint("Response Status: ${response.statusCode}");
+      debugPrint("Response Body: ${response.body}");
 
-    // 2. Accept both 200 (OK) and 201 (Created)
-    if (response.statusCode == 200 || response.statusCode == 201) {
-      return jsonDecode(response.body); 
-    } else {
-      print("Backend rejected with status: ${response.statusCode}");
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        return jsonDecode(response.body);
+      } else {
+        debugPrint("Backend rejected with status: ${response.statusCode}");
+        return null;
+      }
+    } catch (e) {
+      debugPrint("Network Connection Error in sendMessage: $e");
       return null;
     }
-  } catch (e) {
-    print("Network Connection Error in sendMessage: $e");
-    return null;
   }
-}
 
   static Future<Object?> getMessages({
-  required String token, 
-  required int orderId,
-}) async {
-  // Use localhost for local development to match the backend OAuth host.
-  final url = Uri.parse("http://localhost:8000/orders/$orderId/messages");
+    required String token,
+    required int orderId,
+  }) async {
+    // Use localhost for local development to match the backend OAuth host.
+    final url = Uri.parse("http://localhost:8000/orders/$orderId/messages");
 
-  try {
-    final response = await http.get(
-      url,
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": "Bearer $token",
-      },
-    );
+    try {
+      final response = await http.get(
+        url,
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer $token",
+        },
+      );
 
-    if (response.statusCode == 200) {
-      return jsonDecode(response.body); // Returns the list of historical chat messages
-    } else {
-      print("Backend Error: ${response.body}");
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      } else {
+        debugPrint("Backend Error: ${response.body}");
+        return null;
+      }
+    } catch (e) {
+      debugPrint("Network Connection Error in getMessages: $e");
       return null;
     }
-  } catch (e) {
-    print("Network Connection Error in getMessages: $e");
-    return null;
   }
 }
-     }
-     
-
-

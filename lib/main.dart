@@ -6,17 +6,9 @@ import 'package:provider/provider.dart';
 import 'theme.dart';
 import 'services/providers.dart';
 import 'services/otp_provider.dart';
-import 'services/api_service.dart';
-import 'screens/splash_screen.dart';
-import 'screens/customer/food_feed_screen.dart';
-import 'screens/customer/cart_screen.dart';
-import 'screens/auth/login_screen.dart';
-import 'screens/auth/forgot_password_screen.dart';
-import 'screens/auth/reset_password_screen.dart';
-import 'screens/admin/admin_dashboard.dart';
-import 'screens/rider/rider_dashboard.dart';
-import 'screens/restaurants/restaurant_dashboard.dart';
 import 'screens/auth/google_oauth_flow.dart';
+import 'router.dart';
+import 'package:go_router/go_router.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -54,12 +46,14 @@ class FindFoodApp extends StatefulWidget {
 
 class _FindFoodAppState extends State<FindFoodApp> {
   final GlobalKey<NavigatorState> _navigatorKey = GlobalKey<NavigatorState>();
+  late final GoRouter _router;
 
   @override
   void initState() {
     super.initState();
+    final auth = Provider.of<AuthProvider>(context, listen: false);
+    _router = createAppRouter(auth, navigatorKey: _navigatorKey);
     WidgetsBinding.instance.addPostFrameCallback((_) async {
-      final auth = Provider.of<AuthProvider>(context, listen: false);
       await auth.initializeFromSecureStorage();
       await GoogleOAuthFlowService.initializeDeepLinkHandling(
         authProvider: auth,
@@ -87,68 +81,26 @@ class _FindFoodAppState extends State<FindFoodApp> {
       email: email ?? auth.email,
     );
 
-    final destination = switch (role) {
-      'admin' => const AdminDashboard(),
-      'restaurant' => RestaurantDashboard(token: auth.token ?? token),
-      'rider' => const RiderDashboard(),
-      _ => const FoodFeedScreen(),
+    final route = switch (role) {
+      'admin' => '/admin',
+      'restaurant' => '/restaurant/orders',
+      'rider' => '/rider',
+      _ => '/',
     };
-
-    _navigatorKey.currentState?.pushAndRemoveUntil(
-      MaterialPageRoute(builder: (_) => destination),
-      (_) => false,
-    );
+    _router.go(route);
   }
 
   @override
   Widget build(BuildContext context) {
     return Consumer<ThemeProvider>(
       builder: (context, themeProvider, _) {
-        return MaterialApp(
+        return MaterialApp.router(
           title: 'FindFood',
           debugShowCheckedModeBanner: false,
-          navigatorKey: _navigatorKey,
           theme: AppTheme.light,
           darkTheme: AppTheme.dark,
           themeMode: themeProvider.mode,
-          home: const SplashScreen(destination: FoodFeedScreen()),
-          routes: {
-            '/home': (context) => const FoodFeedScreen(),
-            '/login': (context) => const LoginScreen(),
-            '/cart': (context) => const CartScreen(),
-            '/checkout': (context) => const CartScreen(),
-            '/forgot-password': (context) => const ForgotPasswordScreen(),
-            '/reset-password': (context) => const ResetPasswordScreen(),
-            '/admin-dashboard': (context) => const AdminDashboard(),
-            '/restaurant-dashboard': (context) => RestaurantDashboard(token: Provider.of<AuthProvider>(context, listen: false).token ?? ''),
-            '/rider-dashboard': (context) => const RiderDashboard(),
-          },
-          onGenerateRoute: (settings) {
-            final name = settings.name;
-            if (name == null || name.isEmpty) {
-              return MaterialPageRoute(
-                builder: (_) => const SplashScreen(destination: FoodFeedScreen()),
-              );
-            }
-
-            final uri = Uri.tryParse(name);
-            if (uri != null && uri.path == '/reset-password') {
-              final token = extractResetTokenFromUri(uri);
-              return MaterialPageRoute(
-                builder: (_) => ResetPasswordScreen(token: token),
-              );
-            }
-
-            if (uri != null && uri.path == '/forgot-password') {
-              return MaterialPageRoute(
-                builder: (_) => const ForgotPasswordScreen(),
-              );
-            }
-
-            return MaterialPageRoute(
-              builder: (_) => const SplashScreen(destination: FoodFeedScreen()),
-            );
-          },
+          routerConfig: _router,
         );
       },
     );

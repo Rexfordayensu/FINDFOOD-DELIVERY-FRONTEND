@@ -1,25 +1,10 @@
-import 'package:findfood_app/screens/customer/food_feed_screen.dart';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import '../../theme.dart';
 import '../../models/models.dart';
 import '../../services/api_service.dart';
 import '../../services/providers.dart';
-import 'cart_screen.dart';
-
-// Unsplash food images per cuisine
-const _cuisineImages = {
-  'ghanaian':  'https://images.unsplash.com/photo-1604329760661-e71dc83f8f26?w=800&q=80',
-  'local':     'https://images.unsplash.com/photo-1604329760661-e71dc83f8f26?w=800&q=80',
-  'pizza':     'https://images.unsplash.com/photo-1513104890138-7c749659a591?w=800&q=80',
-  'italian':   'https://images.unsplash.com/photo-1513104890138-7c749659a591?w=800&q=80',
-  'chinese':   'https://images.unsplash.com/photo-1585032226651-759b368d7246?w=800&q=80',
-  'fast food': 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=800&q=80',
-  'burger':    'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=800&q=80',
-  'seafood':   'https://images.unsplash.com/photo-1565680018434-b513d5e5fd47?w=800&q=80',
-  'default':   'https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=800&q=80',
-};
-
 
 // Food images per item name keywords
 const _foodImages = {
@@ -251,8 +236,7 @@ class _MenuDetailScreenState extends State<MenuDetailScreen> {
               Padding(
                 padding: const EdgeInsets.only(right: 8),
                 child: GestureDetector(
-                  onTap: () => Navigator.push(context,
-                      MaterialPageRoute(builder: (_) => const CartScreen())),
+                    onTap: () => context.go('/cart'),
                   child: Stack(
                     clipBehavior: Clip.none,
                     children: [
@@ -507,8 +491,7 @@ class _MenuDetailScreenState extends State<MenuDetailScreen> {
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
                 child: GestureDetector(
-                  onTap: () => Navigator.push(context,
-                      MaterialPageRoute(builder: (_) => const CartScreen())),
+                    onTap: () => context.go('/cart'),
                   child: Container(
                     padding: const EdgeInsets.symmetric(
                         horizontal: 20, vertical: 16),

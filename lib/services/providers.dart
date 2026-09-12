@@ -31,6 +31,7 @@ class AuthProvider extends ChangeNotifier {
   String? _name;
   String? _email;
   bool    _isLoggedIn = false;
+  bool    _isInitialized = false;
   bool    _isEmailVerified = false;
   bool    _isRestaurantApproved = false;
 
@@ -40,6 +41,7 @@ class AuthProvider extends ChangeNotifier {
   String? get name       => _name;
   String? get email      => _email;
   bool    get isLoggedIn => _isLoggedIn;
+  bool    get isInitialized => _isInitialized;
   bool    get isEmailVerified => _isEmailVerified;
   bool    get isRestaurantApproved => _isRestaurantApproved;
 
@@ -79,21 +81,25 @@ class AuthProvider extends ChangeNotifier {
   }
 
   Future<void> initializeFromSecureStorage() async {
-    final token = await _secureStorage.read(key: _tokenKey);
-    if (token == null || token.isEmpty) return;
+    try {
+      final token = await _secureStorage.read(key: _tokenKey);
+      if (token == null || token.isEmpty) return;
 
-    final userIdText = await _secureStorage.read(key: _userIdKey);
-    final role = await _secureStorage.read(key: _roleKey);
-    final name = await _secureStorage.read(key: _nameKey);
-    final email = await _secureStorage.read(key: _emailKey);
+      final userIdText = await _secureStorage.read(key: _userIdKey);
+      final role = await _secureStorage.read(key: _roleKey);
+      final name = await _secureStorage.read(key: _nameKey);
+      final email = await _secureStorage.read(key: _emailKey);
 
-    _token = token;
-    _userId = int.tryParse(userIdText ?? '0');
-    _role = role;
-    _name = name;
-    _email = email;
-    _isLoggedIn = true;
-    notifyListeners();
+      _token = token;
+      _userId = int.tryParse(userIdText ?? '0');
+      _role = role;
+      _name = name;
+      _email = email;
+      _isLoggedIn = true;
+    } finally {
+      _isInitialized = true;
+      notifyListeners();
+    }
   }
 
   Future<void> _persistSession() async {

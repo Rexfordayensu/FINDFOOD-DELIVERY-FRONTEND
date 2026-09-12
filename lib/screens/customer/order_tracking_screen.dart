@@ -1,12 +1,12 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import '../../theme.dart';
 import '../../widgets/widgets.dart';
 import '../../models/models.dart';
 import '../../services/api_service.dart';
 import '../../services/providers.dart';
-import '../customer/food_feed_screen.dart';
 
 class OrderTrackingScreen extends StatefulWidget {
   final Order order;
@@ -118,11 +118,7 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
             const SizedBox(height: 24),
             PrimaryButton(
               label: 'Back to home',
-              onPressed: () => Navigator.pushAndRemoveUntil(
-                context,
-                MaterialPageRoute(builder: (_) => const FoodFeedScreen()),
-                (_) => false,
-              ),
+              onPressed: () => context.go('/'),
             ),
           ],
         ),
@@ -139,8 +135,7 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
         title: Text('Order #${_order.id}'),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 18),
-          onPressed: () =>
-              Navigator.popUntil(context, (r) => r.isFirst),
+            onPressed: () => context.go('/orders'),
         ),
         actions: [
           // Live indicator

@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:findfood_app/screens/customer/food_feed_screen.dart';
+import 'package:go_router/go_router.dart';
 
 class PaymentSuccessScreen extends StatelessWidget {
   const PaymentSuccessScreen({super.key});
@@ -28,10 +28,7 @@ class PaymentSuccessScreen extends StatelessWidget {
               ),
               const SizedBox(height: 24),
               ElevatedButton(
-                onPressed: () => Navigator.of(context).pushAndRemoveUntil(
-                  MaterialPageRoute(builder: (_) => const FoodFeedScreen()),
-                  (route) => false,
-                ),
+                onPressed: () => context.go('/'),
                 child: const Text('Go to home'),
               ),
             ],

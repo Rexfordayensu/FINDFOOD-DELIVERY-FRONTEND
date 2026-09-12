@@ -1,13 +1,12 @@
 import 'dart:async';
-import '../customer/food_feed_screen.dart';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import '../../theme.dart';
 import '../../widgets/widgets.dart';
 import '../../models/models.dart';
 import '../../services/api_service.dart';
 import '../../services/providers.dart';
-import '../customer/order_chat_screen.dart';
 
 
 class RiderDashboard extends StatefulWidget {
@@ -377,16 +376,7 @@ class _AvailableDeliveriesPageState extends State<_AvailableDeliveriesPage> {
           constraints: const BoxConstraints(), // Keeps the button compact
           padding: EdgeInsets.zero,
           onPressed: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => OrderChatScreen(
-                  orderId: order.id,
-                  order: order,
-                  otherPartyLabel: order.restaurantName ?? 'Restaurant', // Uses the getter we just made!
-                ),
-              ),
-            );
+            context.push('/order-chat/${order.id}', extra: order);
           },
         ),
       ],
@@ -857,11 +847,7 @@ class _RiderSettingsPage extends StatelessWidget {
                 label: 'Sign out',
                 onPressed: () {
                   auth.logout();
-                  Navigator.pushAndRemoveUntil(
-                      context,
-                      MaterialPageRoute(
-                          builder: (_) => const FoodFeedScreen()),
-                      (_) => false);
+                    context.go('/');
                 },
               ),
             ],

@@ -1,17 +1,10 @@
-import 'package:findfood_app/screens/auth/email_verification_screen.dart';
-import 'package:findfood_app/screens/auth/forgot_password_screen.dart';
-import 'package:findfood_app/screens/restaurants/restaurant_dashboard.dart';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import '../../theme.dart';
 import '../../widgets/widgets.dart';
 import '../../services/api_service.dart';
 import '../../services/providers.dart';
-import '../../screens/splash_screen.dart';
-import '../customer/food_feed_screen.dart';
-import '../admin/admin_dashboard.dart';
-import '../rider/rider_dashboard.dart';
-import 'google_oauth_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({
@@ -32,26 +25,25 @@ class LoginScreen extends StatefulWidget {
 class _LoginScreenState extends State<LoginScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
-  final _loginKey  = GlobalKey<FormState>();
+  final _loginKey = GlobalKey<FormState>();
   final _signupKey = GlobalKey<FormState>();
 
-  final _loginEmail    = TextEditingController();
+  final _loginEmail = TextEditingController();
   final _loginPassword = TextEditingController();
-  final _signupName    = TextEditingController();
-  final _signupEmail   = TextEditingController();
-  final _signupPass    = TextEditingController();
-  final _resetEmail    = TextEditingController();
+  final _signupName = TextEditingController();
+  final _signupEmail = TextEditingController();
+  final _signupPass = TextEditingController();
+  final _resetEmail = TextEditingController();
   final _cuisineController = TextEditingController();
   final _addressController = TextEditingController();
 
-  bool _obscureLogin  = true;
+  bool _obscureLogin = true;
   bool _obscureSignup = true;
-  bool _isLoading     = false;
+  bool _isLoading = false;
   bool _isRequestingOtp = false;
   bool _useOtpLogin = false;
-  int  _tabIndex      = 0;
-  String _signupRole  = 'customer';
-  
+  int _tabIndex = 0;
+  String _signupRole = 'customer';
 
   @override
   void initState() {
@@ -87,25 +79,26 @@ class _LoginScreenState extends State<LoginScreen>
       );
       if (!mounted) return;
 
-      Provider.of<AuthProvider>(context, listen: false).login(
-        token:  data['access_token'],
+      if (otpRequiredFromResponse(data)) {
+        context.go(
+          '/email-verification?email=${Uri.encodeComponent(_loginEmail.text.trim())}&role=${Uri.encodeComponent('')}&mode=${Uri.encodeComponent('login')}',
+        );
+        return;
+      }
+
+      await Provider.of<AuthProvider>(context, listen: false).login(
+        token: data['access_token'],
         userId: data['user_id'],
-        role:   data['role'],
-        email:  data['email']?.toString() ?? _loginEmail.text.trim(),
+        role: data['role'],
+        email: data['email']?.toString() ?? _loginEmail.text.trim(),
       );
 
-      // Show splash then route by role
-      _goWithSplash(_destinationFor(data['role']));
+      if (!mounted) return;
+      context.go(_routeAfterLogin(data['role']));
     } on EmailNotVerifiedException {
       if (!mounted) return;
-      // Navigate to email verification screen
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(
-          builder: (_) => EmailVerificationScreen(
-            email: _loginEmail.text.trim(),
-            role: '', // Role will be determined after verification
-          ),
-        ),
+      context.go(
+        '/email-verification?email=${Uri.encodeComponent(_loginEmail.text.trim())}&role=${Uri.encodeComponent('')}&mode=${Uri.encodeComponent('login')}',
       );
     } catch (e) {
       if (!mounted) return;
@@ -127,14 +120,8 @@ class _LoginScreenState extends State<LoginScreen>
       await ApiService.requestLoginOtp(email: email);
       if (!mounted) return;
 
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(
-          builder: (_) => EmailVerificationScreen(
-            email: email,
-            role: '',
-            mode: VerificationMode.login,
-          ),
-        ),
+      context.go(
+        '/email-verification?email=${Uri.encodeComponent(email)}&role=${Uri.encodeComponent('')}&mode=${Uri.encodeComponent('login')}',
       );
     } catch (e) {
       if (!mounted) return;
@@ -145,37 +132,47 @@ class _LoginScreenState extends State<LoginScreen>
   }
 
   // ── REGISTER ──────────────────────────────────────────────────────────────
-  Future<void> _register(TextEditingController cuisineController, TextEditingController addressController) async {
+  Future<void> _register(TextEditingController cuisineController,
+      TextEditingController addressController) async {
     // 1. Basic form validation (Email, Password, Name)
     if (!_signupKey.currentState!.validate()) return;
 
     // 2. Strict validation: Ensure restaurant users supplied their details
     if (_signupRole == 'restaurant') {
-      if (cuisineController.text.trim().isEmpty || addressController.text.trim().isEmpty) {
-        _showError('Cuisine Type and Store Address are required for restaurants!');
+      if (cuisineController.text.trim().isEmpty ||
+          addressController.text.trim().isEmpty) {
+        _showError(
+            'Cuisine Type and Store Address are required for restaurants!');
         return; // Halt registration here
       }
     }
 
     setState(() => _isLoading = true);
-    
+
     final registrationEmail = _signupEmail.text.trim();
     final registrationRole = _signupRole;
-    
+
     try {
       // 3. Make the API call with all required fields
-      await ApiService.register(
-        name:     _signupName.text.trim(),
-        email:    registrationEmail,
+      final data = await ApiService.register(
+        name: _signupName.text.trim(),
+        email: registrationEmail,
         password: _signupPass.text.trim(),
-        role:     registrationRole,
-        cuisineType: registrationRole == 'restaurant' ? cuisineController.text.trim() : '',
-        address: registrationRole == 'restaurant' ? addressController.text.trim() : '', 
+        role: registrationRole,
+        cuisineType: registrationRole == 'restaurant'
+            ? cuisineController.text.trim()
+            : '',
+        address: registrationRole == 'restaurant'
+            ? addressController.text.trim()
+            : '',
       );
       if (!mounted) return;
 
-      _showSuccess('Account created! Please verify your email.');
-      
+      final otpRequired = otpRequiredFromResponse(data);
+      _showSuccess(otpRequired
+          ? 'Account created! Please verify your email.'
+          : 'Account created successfully.');
+
       // Clear form
       _signupName.clear();
       _signupEmail.clear();
@@ -183,16 +180,17 @@ class _LoginScreenState extends State<LoginScreen>
       cuisineController.clear();
       addressController.clear();
 
-      // Navigate to email verification screen
       if (!mounted) return;
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(
-          builder: (_) => EmailVerificationScreen(
-            email: registrationEmail,
-            role: registrationRole,
-          ),
-        ),
-      );
+      if (otpRequired) {
+        context.go(
+          '/email-verification?email=${Uri.encodeComponent(registrationEmail)}&role=${Uri.encodeComponent(registrationRole)}&mode=${Uri.encodeComponent('registration')}',
+        );
+      } else {
+        setState(() {
+          _tabIndex = 0;
+          _tabController.animateTo(0);
+        });
+      }
     } catch (e) {
       if (!mounted) return;
       _showError(e.toString().replaceAll('Exception: ', ''));
@@ -200,45 +198,39 @@ class _LoginScreenState extends State<LoginScreen>
       if (mounted) setState(() => _isLoading = false);
     }
   }
-  Widget _destinationFor(String role) {
+
+  String _routeForRole(String role) {
     switch (role) {
-      case 'admin':      return const AdminDashboard();
-      case 'restaurant': return RestaurantDashboard(token: Provider.of<AuthProvider>(context, listen: false).token!);
-      case 'rider':      return const RiderDashboard();
-      default:           return const FoodFeedScreen();
+      case 'admin':
+        return '/admin';
+      case 'restaurant':
+        return '/restaurant/orders';
+      case 'rider':
+        return '/rider';
+      default:
+        return '/';
     }
   }
 
-  void _goWithSplash(Widget destination) {
-    Navigator.pushAndRemoveUntil(
-      context,
-      MaterialPageRoute(
-        builder: (_) => SplashScreen(destination: destination),
-      ),
-      (_) => false,
-    );
+  String _routeAfterLogin(String role) {
+    final requested = widget.returnRoute;
+    if (role == 'customer' && requested.isNotEmpty && requested != '/home') {
+      return requested;
+    }
+    return _routeForRole(role);
   }
 
   // ── FORGOT PASSWORD ───────────────────────────────────────────────────────
   void _showForgotPassword() {
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (_) => const ForgotPasswordScreen()),
-    );
+    context.push('/forgot-password');
   }
 
   // ── GOOGLE SIGN IN ───────────────────────────────────────────────────────
   Future<void> _googleSignIn() async {
     try {
       if (!mounted) return;
-      await Navigator.of(context).push(
-        MaterialPageRoute(
-          builder: (_) => GoogleOAuthScreen(
-            returnRoute: widget.returnRoute,
-            pendingAction: widget.pendingAction,
-            pendingParameters: widget.pendingParameters,
-          ),
-        ),
+      await context.push(
+        '/google-oauth?returnTo=${Uri.encodeComponent(widget.returnRoute)}',
       );
     } catch (e) {
       if (!mounted) return;
@@ -252,43 +244,13 @@ class _LoginScreenState extends State<LoginScreen>
       builder: (_) => AlertDialog(
         backgroundColor: AppColors.card(context),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: Text(feature, style: TextStyle(color: AppColors.textPrimary(context))),
-        content: Text('This feature is coming soon.', style: TextStyle(color: AppColors.textSecondary(context))),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('OK')),
-        ],
-      ),
-    );
-  }
-
-  void _showVendorDialog() {
-    showDialog(
-      context: context,
-      builder: (_) => AlertDialog(
-        backgroundColor: AppColors.card(context),
-        shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20)),
-        title: Text('Application received',
-            style: TextStyle(
-                color: AppColors.textPrimary(context),
-                fontWeight: FontWeight.w700)),
-        content: Text(
-          'Your restaurant application has been submitted. Our team will '
-          'verify your details within 24–48 hours.',
-          style: TextStyle(
-              color: AppColors.textSecondary(context), height: 1.5),
-        ),
+        title: Text(feature,
+            style: TextStyle(color: AppColors.textPrimary(context))),
+        content: Text('This feature is coming soon.',
+            style: TextStyle(color: AppColors.textSecondary(context))),
         actions: [
           TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-              setState(() => _tabIndex = 0);
-              _tabController.animateTo(0);
-            },
-            child: const Text('Got it',
-                style: TextStyle(
-                    color: AppTheme.accent, fontWeight: FontWeight.w700)),
-          ),
+              onPressed: () => Navigator.pop(context), child: const Text('OK')),
         ],
       ),
     );
@@ -314,12 +276,12 @@ class _LoginScreenState extends State<LoginScreen>
 
   @override
   Widget build(BuildContext context) {
-    final bg      = AppColors.bg(context);
-    final surf    = AppColors.surface(context);
+    final bg = AppColors.bg(context);
+    final surf = AppColors.surface(context);
     final textPri = AppColors.textPrimary(context);
     final textSec = AppColors.textSecondary(context);
-    final textHint= AppColors.textHint(context);
-    final border  = AppColors.border(context);
+    final textHint = AppColors.textHint(context);
+    final border = AppColors.border(context);
 
     return Scaffold(
       backgroundColor: bg,
@@ -333,7 +295,8 @@ class _LoginScreenState extends State<LoginScreen>
                 children: [
                   // ── Logo ──────────────────────────────────
                   Container(
-                    width: 68, height: 68,
+                    width: 68,
+                    height: 68,
                     decoration: BoxDecoration(
                       color: AppTheme.accent,
                       borderRadius: BorderRadius.circular(20),
@@ -344,8 +307,10 @@ class _LoginScreenState extends State<LoginScreen>
                   const SizedBox(height: 14),
                   Text('FINDFOOD',
                       style: TextStyle(
-                          color: textPri, fontSize: 28,
-                          fontWeight: FontWeight.w900, letterSpacing: 0.5)),
+                          color: textPri,
+                          fontSize: 28,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: 0.5)),
                   const SizedBox(height: 4),
                   Text('Food delivery, done fast.',
                       style: TextStyle(color: textSec, fontSize: 14)),
@@ -372,10 +337,13 @@ class _LoginScreenState extends State<LoginScreen>
                     child: _tabIndex == 0
                         ? _buildLoginForm(
                             key: const ValueKey('login'),
-                            textHint: textHint, border: border, surf: surf)
+                            textHint: textHint,
+                            border: border,
+                            surf: surf)
                         : _buildSignupForm(
                             key: const ValueKey('signup'),
-                            surf: surf, border: border),
+                            surf: surf,
+                            border: border),
                   ),
 
                   const SizedBox(height: 24),
@@ -400,7 +368,9 @@ class _LoginScreenState extends State<LoginScreen>
                         icon: Icons.g_mobiledata_rounded,
                         color: const Color(0xFFEA4335),
                         onTap: _googleSignIn,
-                        surf: surf, border: border, textPri: textPri,
+                        surf: surf,
+                        border: border,
+                        textPri: textPri,
                       ),
                     ),
                     const SizedBox(width: 12),
@@ -410,7 +380,9 @@ class _LoginScreenState extends State<LoginScreen>
                         icon: Icons.apple_rounded,
                         color: textPri,
                         onTap: () => _showComingSoon('Apple Sign-In'),
-                        surf: surf, border: border, textPri: textPri,
+                        surf: surf,
+                        border: border,
+                        textPri: textPri,
                       ),
                     ),
                     const SizedBox(width: 12),
@@ -420,11 +392,12 @@ class _LoginScreenState extends State<LoginScreen>
                         icon: Icons.facebook_rounded,
                         color: const Color(0xFF1877F2),
                         onTap: () => _showComingSoon('Facebook Sign-In'),
-                        surf: surf, border: border, textPri: textPri,
+                        surf: surf,
+                        border: border,
+                        textPri: textPri,
                       ),
                     ),
                   ]),
-
                 ],
               ),
             ),
@@ -432,7 +405,6 @@ class _LoginScreenState extends State<LoginScreen>
         ),
       ),
     );
-
   }
 
   Widget _tabBtn(String label, int index, Color surf, Color textSec) {
@@ -454,7 +426,8 @@ class _LoginScreenState extends State<LoginScreen>
             child: Text(label,
                 style: TextStyle(
                   color: active ? Colors.black : textSec,
-                  fontWeight: FontWeight.w700, fontSize: 15,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 15,
                 )),
           ),
         ),
@@ -495,12 +468,13 @@ class _LoginScreenState extends State<LoginScreen>
               suffixIcon: IconButton(
                 icon: Icon(
                   _obscureLogin ? Icons.visibility_off : Icons.visibility,
-                  color: textHint, size: 20,
+                  color: textHint,
+                  size: 20,
                 ),
                 onPressed: () => setState(() => _obscureLogin = !_obscureLogin),
               ),
               validator: (v) =>
-                 (v == null || v.length < 8) ? 'Min 8 characters' : null,
+                  (v == null || v.length < 8) ? 'Min 8 characters' : null,
             ),
             const SizedBox(height: 8),
             Align(
@@ -528,7 +502,6 @@ class _LoginScreenState extends State<LoginScreen>
             ),
             const SizedBox(height: 8),
           ],
-
           const SizedBox(height: 8),
           PrimaryButton(
             label: _useOtpLogin ? 'Continue' : 'Sign in',
@@ -548,16 +521,18 @@ class _LoginScreenState extends State<LoginScreen>
           const SizedBox(height: 8),
           Row(mainAxisAlignment: MainAxisAlignment.center, children: [
             Text("Don't have an account? ",
-                style: TextStyle(color: AppColors.textSecondary(context),
-                    fontSize: 13)),
+                style: TextStyle(
+                    color: AppColors.textSecondary(context), fontSize: 13)),
             GestureDetector(
               onTap: () => setState(() {
                 _tabIndex = 1;
                 _tabController.animateTo(1);
               }),
               child: const Text('Sign up',
-                  style: TextStyle(color: AppTheme.accent,
-                      fontWeight: FontWeight.w700, fontSize: 13)),
+                  style: TextStyle(
+                      color: AppTheme.accent,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 13)),
             ),
           ]),
         ],
@@ -583,9 +558,9 @@ class _LoginScreenState extends State<LoginScreen>
               border: Border.all(color: border),
             ),
             child: Row(children: [
-              _roleChip('Customer',   'customer',   Icons.person_outline),
+              _roleChip('Customer', 'customer', Icons.person_outline),
               _roleChip('Restaurant', 'restaurant', Icons.storefront_outlined),
-              _roleChip('Rider',      'rider',      Icons.electric_bike_outlined),
+              _roleChip('Rider', 'rider', Icons.electric_bike_outlined),
             ]),
           ),
           const SizedBox(height: 16),
@@ -616,7 +591,8 @@ class _LoginScreenState extends State<LoginScreen>
               hint: 'Cuisine Type e.g. local, Italian, Chinese, Fast Food',
               prefixIcon: Icons.restaurant_menu_outlined,
               validator: (v) {
-                if (_signupRole == 'restaurant' && (v == null || v.trim().isEmpty)) {
+                if (_signupRole == 'restaurant' &&
+                    (v == null || v.trim().isEmpty)) {
                   return 'Cuisine type is required';
                 }
                 return null;
@@ -628,7 +604,8 @@ class _LoginScreenState extends State<LoginScreen>
               hint: 'Restaurant Address',
               prefixIcon: Icons.location_on_outlined,
               validator: (v) {
-                if (_signupRole == 'restaurant' && (v == null || v.trim().isEmpty)) {
+                if (_signupRole == 'restaurant' &&
+                    (v == null || v.trim().isEmpty)) {
                   return 'Restaurant address is required';
                 }
                 return null;
@@ -644,10 +621,10 @@ class _LoginScreenState extends State<LoginScreen>
             suffixIcon: IconButton(
               icon: Icon(
                 _obscureSignup ? Icons.visibility_off : Icons.visibility,
-                color: AppColors.textHint(context), size: 20,
+                color: AppColors.textHint(context),
+                size: 20,
               ),
-              onPressed: () =>
-                  setState(() => _obscureSignup = !_obscureSignup),
+              onPressed: () => setState(() => _obscureSignup = !_obscureSignup),
             ),
             validator: (v) =>
                 (v == null || v.length < 8) ? 'Min 8 characters' : null,
@@ -671,8 +648,10 @@ class _LoginScreenState extends State<LoginScreen>
                 _tabController.animateTo(0);
               }),
               child: const Text('Sign in',
-                  style: TextStyle(color: AppTheme.accent,
-                      fontWeight: FontWeight.w700, fontSize: 13)),
+                  style: TextStyle(
+                      color: AppTheme.accent,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 13)),
             ),
           ]),
         ],
@@ -694,14 +673,16 @@ class _LoginScreenState extends State<LoginScreen>
             borderRadius: BorderRadius.circular(8),
           ),
           child: Column(children: [
-            Icon(icon, size: 18,
+            Icon(icon,
+                size: 18,
                 color: selected ? Colors.black : AppColors.textHint(context)),
             const SizedBox(height: 4),
             Text(label,
                 style: TextStyle(
-                    fontSize: 11, fontWeight: FontWeight.w700,
-                    color: selected
-                        ? Colors.black : AppColors.textHint(context))),
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    color:
+                        selected ? Colors.black : AppColors.textHint(context))),
           ]),
         ),
       ),
@@ -717,8 +698,12 @@ class _SocialBtn extends StatefulWidget {
   final VoidCallback onTap;
 
   const _SocialBtn({
-    required this.label, required this.icon, required this.color,
-    required this.onTap, required this.surf, required this.border,
+    required this.label,
+    required this.icon,
+    required this.color,
+    required this.onTap,
+    required this.surf,
+    required this.border,
     required this.textPri,
   });
 
@@ -733,36 +718,39 @@ class _SocialBtnState extends State<_SocialBtn> {
   Widget build(BuildContext context) {
     return GestureDetector(
       onTapDown: (_) => setState(() => _pressed = true),
-      onTapUp: (_) { setState(() => _pressed = false); widget.onTap(); },
+      onTapUp: (_) {
+        setState(() => _pressed = false);
+        widget.onTap();
+      },
       onTapCancel: () => setState(() => _pressed = false),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 150),
-        transform: Matrix4.identity()
-          ..scale(_pressed ? 0.95 : 1.0),
-        padding: const EdgeInsets.symmetric(vertical: 13),
-        decoration: BoxDecoration(
-          color: _pressed
-              ? widget.color.withValues(alpha: 0.08)
-              : widget.surf,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: _pressed
-                ? widget.color.withValues(alpha: 0.4)
-                : widget.border,
-            width: _pressed ? 1.5 : 1,
+      child: Transform.scale(
+        scale: _pressed ? 0.95 : 1.0,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          padding: const EdgeInsets.symmetric(vertical: 13),
+          decoration: BoxDecoration(
+            color:
+                _pressed ? widget.color.withValues(alpha: 0.08) : widget.surf,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: _pressed
+                  ? widget.color.withValues(alpha: 0.4)
+                  : widget.border,
+              width: _pressed ? 1.5 : 1,
+            ),
           ),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(widget.icon, color: widget.color, size: 24),
-            const SizedBox(height: 4),
-            Text(widget.label,
-                style: TextStyle(
-                    color: widget.textPri,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600)),
-          ],
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(widget.icon, color: widget.color, size: 24),
+              const SizedBox(height: 4),
+              Text(widget.label,
+                  style: TextStyle(
+                      color: widget.textPri,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600)),
+            ],
+          ),
         ),
       ),
     );

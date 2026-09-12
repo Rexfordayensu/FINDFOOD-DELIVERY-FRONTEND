@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:findfood_app/screens/auth/login_screen.dart';
+import 'package:go_router/go_router.dart';
 import '../../services/api_service.dart';
 import '../../theme.dart';
 import '../../widgets/widgets.dart';
@@ -64,11 +64,7 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
       _showMessage(message, AppTheme.success);
       await Future.delayed(const Duration(milliseconds: 700));
       if (!mounted) return;
-      Navigator.pushAndRemoveUntil(
-        context,
-        MaterialPageRoute(builder: (_) => const LoginScreen()),
-        (_) => false,
-      );
+      context.go('/login');
     } on PasswordResetException catch (e) {
       if (!mounted) return;
       _showMessage(e.message, AppTheme.danger);
@@ -99,7 +95,6 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
     final bg = AppColors.bg(context);
     final textPri = AppColors.textPrimary(context);
     final textSec = AppColors.textSecondary(context);
-    final border = AppColors.border(context);
 
     return Scaffold(
       backgroundColor: bg,
@@ -220,11 +215,7 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
                 ],
                 const SizedBox(height: 20),
                 TextButton(
-                  onPressed: () => Navigator.pushAndRemoveUntil(
-                    context,
-                    MaterialPageRoute(builder: (_) => const LoginScreen()),
-                    (_) => false,
-                  ),
+                  onPressed: () => context.go('/login'),
                   child: const Text(
                     'Back to sign in',
                     style: TextStyle(color: AppTheme.accent, fontWeight: FontWeight.w700),

@@ -1,13 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import '../../theme.dart';
 import '../../widgets/widgets.dart';
 import '../../models/models.dart';
 import '../../services/api_service.dart';
 import '../../services/providers.dart';
-import '../auth/login_screen.dart';
-import 'menu_detail_screen.dart';
-import 'cart_screen.dart';
 import '../../widgets/greeting_header.dart';
 
 // ── Cuisine config with real Unsplash food images ────────────────────────────
@@ -270,10 +268,7 @@ class _FoodFeedScreenState extends State<FoodFeedScreen>
                                       isDemo: r.id < 0,
                                       onTap: r.id < 0
                                           ? () => _showComingSoon(context, r)
-                                          : () => Navigator.push(context,
-                                              MaterialPageRoute(
-                                                  builder: (_) =>
-                                                      MenuDetailScreen(restaurant: r))),
+                                            : () => context.go('/restaurants/${r.id}', extra: r),
                                     ),
                                   );
                                 },
@@ -290,24 +285,19 @@ class _FoodFeedScreenState extends State<FoodFeedScreen>
         cartCount: cart.itemCount,
         onTap: (i) {
           if (i == 2) {
-            Navigator.push(context,
-                MaterialPageRoute(builder: (_) => const CartScreen()));
+            context.go('/cart');
             return;
           }
           if (i == 4) {
             if (auth.isLoggedIn) {
-              _showProfileSheet(context, auth, themeP);
+              context.go('/profile');
             } else {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => const LoginScreen(
-                    returnRoute: '/home',
-                    pendingAction: 'browse_menu',
-                  ),
-                ),
-              );
+              context.go('/login?returnTo=%2Fprofile');
             }
+            return;
+          }
+          if (i == 3) {
+            context.go('/orders');
             return;
           }
           setState(() => _navIndex = i);
@@ -376,68 +366,6 @@ class _FoodFeedScreenState extends State<FoodFeedScreen>
     );
   }
 
-  void _showProfileSheet(BuildContext ctx, AuthProvider auth,
-      ThemeProvider themeP) {
-    showModalBottomSheet(
-      context: ctx,
-      backgroundColor: AppColors.card(ctx),
-      shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
-      builder: (_) => Padding(
-        padding: const EdgeInsets.fromLTRB(24, 12, 24, 32),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(width: 36, height: 4,
-                decoration: BoxDecoration(
-                    color: AppColors.border(ctx),
-                    borderRadius: BorderRadius.circular(2))),
-            const SizedBox(height: 24),
-            CircleAvatar(
-              radius: 34,
-              backgroundColor: AppTheme.accentDim,
-              child: Text(
-                (auth.role ?? 'U')[0].toUpperCase(),
-                style: const TextStyle(color: AppTheme.accent,
-                    fontSize: 26, fontWeight: FontWeight.w900),
-              ),
-            ),
-            const SizedBox(height: 12),
-            Text(auth.role?.toUpperCase() ?? 'USER',
-                style: TextStyle(color: AppColors.textPrimary(ctx),
-                    fontSize: 17, fontWeight: FontWeight.w800)),
-            const SizedBox(height: 4),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
-              decoration: BoxDecoration(
-                color: AppTheme.accent.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Text(auth.role ?? '',
-                  style: const TextStyle(color: AppTheme.accent,
-                      fontSize: 12, fontWeight: FontWeight.w700)),
-            ),
-            const SizedBox(height: 28),
-            // Theme toggle
-            _SheetBtn(
-              icon: themeP.isDark
-                  ? Icons.wb_sunny_rounded : Icons.nightlight_round,
-              label: themeP.isDark ? 'Switch to light mode' : 'Switch to dark mode',
-              color: AppTheme.accent,
-              onTap: () { Navigator.pop(ctx); themeP.toggle(); },
-            ),
-            const SizedBox(height: 10),
-            _SheetBtn(
-              icon: Icons.logout_rounded,
-              label: 'Sign out',
-              color: AppTheme.danger,
-              onTap: () { Navigator.pop(ctx); auth.logout(); },
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 }
 
 // ─── HEADER ───────────────────────────────────────────────────────────────────
@@ -504,8 +432,7 @@ class _Header extends StatelessWidget {
                 icon: Icons.shopping_bag_outlined,
                 color: textPri, bg: surf, border: border,
                 badge: cart.itemCount,
-                onTap: () => Navigator.push(context,
-                    MaterialPageRoute(builder: (_) => const CartScreen())),
+                  onTap: () => context.go('/cart'),
                 tooltip: 'Cart',
               ),
               const SizedBox(width: 8),
@@ -518,15 +445,7 @@ class _Header extends StatelessWidget {
                     ? AppTheme.accent.withValues(alpha: 0.3) : border,
                 onTap: () {
                   if (!auth.isLoggedIn) {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => const LoginScreen(
-                          returnRoute: '/home',
-                          pendingAction: 'sign_in',
-                        ),
-                      ),
-                    );
+                    context.go('/login?returnTo=%2F');
                   }
                 },
                 tooltip: auth.isLoggedIn ? 'Profile' : 'Sign in',
@@ -766,7 +685,6 @@ class _RestaurantCardState extends State<_RestaurantCard>
   Widget build(BuildContext context) {
     final r       = widget.restaurant;
     final data     = _cuisineFor(r.cuisineType);
-    final imageUrl = data['image'] as String;
     final colors   = data['colors'] as List<Color>;
     final card    = AppColors.card(context);
     final border  = AppColors.border(context);
@@ -1259,47 +1177,6 @@ class _BottomNav extends StatelessWidget {
               );
             }),
           ),
-        ),
-      ),
-    );
-  }
-}
-
-// ─── PROFILE SHEET BUTTON ─────────────────────────────────────────────────────
-class _SheetBtn extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final Color color;
-  final VoidCallback onTap;
-
-  const _SheetBtn({
-    required this.icon, required this.label,
-    required this.color, required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.symmetric(vertical: 14),
-        decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.08),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: color.withValues(alpha: 0.25)),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, color: color, size: 18),
-            const SizedBox(width: 10),
-            Text(label,
-                style: TextStyle(
-                    color: color,
-                    fontWeight: FontWeight.w700,
-                    fontSize: 15)),
-          ],
         ),
       ),
     );

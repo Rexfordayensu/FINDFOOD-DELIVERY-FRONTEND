@@ -2,18 +2,32 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:findfood_app/services/api_service.dart';
 
 void main() {
+  group('OTP response parsing', () {
+    test('uses the backend otp_required value', () {
+      expect(otpRequiredFromResponse({'otp_required': false}), isFalse);
+      expect(otpRequiredFromResponse({'otp_required': true}), isTrue);
+    });
+
+    test('requires OTP when an old backend omits the field', () {
+      expect(otpRequiredFromResponse({}), isTrue);
+    });
+  });
+
   group('password reset helpers', () {
     test('extracts reset token from a deep link or browser URL', () {
       expect(
-        extractResetTokenFromUri(Uri.parse('https://example.com/reset-password?token=abc123')),
+        extractResetTokenFromUri(
+            Uri.parse('https://example.com/reset-password?token=abc123')),
         'abc123',
       );
       expect(
-        extractResetTokenFromUri(Uri.parse('findfood://reset-password?token=xyz789')),
+        extractResetTokenFromUri(
+            Uri.parse('findfood://reset-password?token=xyz789')),
         'xyz789',
       );
       expect(
-        extractResetTokenFromUri(Uri.parse('https://example.com/reset-password')),
+        extractResetTokenFromUri(
+            Uri.parse('https://example.com/reset-password')),
         isNull,
       );
     });
