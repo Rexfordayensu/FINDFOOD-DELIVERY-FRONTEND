@@ -8,12 +8,15 @@ void main() {
       expect(otpRequiredFromResponse({'otp_required': true}), isTrue);
     });
 
+
+    
+
     test('requires OTP when an old backend omits the field', () {
       expect(otpRequiredFromResponse({}), isTrue);
     });
   });
 
-  
+
 
   group('password reset helpers', () {
     test('extracts reset token from a deep link or browser URL', () {
