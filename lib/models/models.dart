@@ -8,6 +8,7 @@ class Restaurant {
   final bool isApproved;
   final int ownerId;
   final String? imageUrl;
+  final String? bannerUrl;
 
   Restaurant({
     required this.id,
@@ -19,6 +20,7 @@ class Restaurant {
     required this.isApproved,
     required this.ownerId,
     this.imageUrl, 
+    this.bannerUrl,
   });
 
   factory Restaurant.fromJson(Map<String, dynamic> json) => Restaurant(
@@ -31,6 +33,7 @@ class Restaurant {
         isApproved: json['is_approved'] ?? false,
         ownerId: json['owner_id'] ?? 0,
         imageUrl: json['image_url'],
+        bannerUrl: json['banner_url'],
       );
 }
 
@@ -76,6 +79,12 @@ class Order {
   final String status;
   final int restaurantId;
   final int userId;
+  final String fulfillmentMethod;
+  final String? pickupName;
+  final String? pickupPhone;
+  final String? kitchenNote;
+  final String? deliveryAddress;
+  final DateTime? scheduledFor;
 
   Order({
     required this.id,
@@ -83,6 +92,12 @@ class Order {
     required this.status,
     required this.restaurantId,
     required this.userId,
+    this.fulfillmentMethod = 'delivery',
+    this.pickupName,
+    this.pickupPhone,
+    this.kitchenNote,
+    this.deliveryAddress,
+    this.scheduledFor,
   });
 
   String get displayTotal => 'GH₵ ${(totalAmount / 100).toStringAsFixed(2)}';
@@ -93,6 +108,14 @@ class Order {
         status: json['status'],
         restaurantId: json['restaurant_id'],
         userId: json['user_id'],
+        fulfillmentMethod: json['fulfillment_method'] ?? 'delivery',
+        pickupName: json['pickup_name'],
+        pickupPhone: json['pickup_phone'],
+        kitchenNote: json['kitchen_note'],
+        deliveryAddress: json['delivery_address'],
+        scheduledFor: json['scheduled_for'] == null
+          ? null
+          : DateTime.tryParse(json['scheduled_for'].toString()),
       );
 
   String? get restaurantName => null;
@@ -103,6 +126,12 @@ class Order {
     int? totalAmount,
     int? restaurantId,
     int? userId,
+    String? fulfillmentMethod,
+    String? pickupName,
+    String? pickupPhone,
+    String? kitchenNote,
+    String? deliveryAddress,
+    DateTime? scheduledFor,
 
     // You can add other fields here if you need to copy them later
   }) {
@@ -112,6 +141,12 @@ class Order {
       totalAmount: totalAmount ?? this.totalAmount,
       restaurantId: restaurantId ?? this.restaurantId,
       userId: userId ?? this.userId,
+      fulfillmentMethod: fulfillmentMethod ?? this.fulfillmentMethod,
+      pickupName: pickupName ?? this.pickupName,
+      pickupPhone: pickupPhone ?? this.pickupPhone,
+      kitchenNote: kitchenNote ?? this.kitchenNote,
+      deliveryAddress: deliveryAddress ?? this.deliveryAddress,
+      scheduledFor: scheduledFor ?? this.scheduledFor,
       // ... pass your other existing class fields here like:
       // total: total,
     );
@@ -175,7 +210,7 @@ class ChatMessage {
         orderId: json['order_id'],
         senderId: json['sender_id'],
         senderRole: json['sender_role'],
-        content: json['content'],
+        content: json['content'] ?? json['message'] ?? '',
         createdAt: DateTime.parse(json['created_at']),
         isMine: json['is_mine'] ?? false,
       );
@@ -269,5 +304,35 @@ class RiderAnalytics {
         completedDeliveries: json['completed_deliveries'] ?? 0,
         totalEarnings: json['total_earnings'] ?? 0,
         averageEarningPerDelivery: json['average_earning_per_delivery'] ?? 0,
+      );
+}
+
+class Promotion {
+  final int id;
+  final int restaurantId;
+  final String title;
+  final String? description;
+  final String imageUrl;
+  final int? discountPercent;
+  final bool isActive;
+
+  const Promotion({
+    required this.id,
+    required this.restaurantId,
+    required this.title,
+    required this.imageUrl,
+    this.description,
+    this.discountPercent,
+    required this.isActive,
+  });
+
+  factory Promotion.fromJson(Map<String, dynamic> json) => Promotion(
+        id: json['id'],
+        restaurantId: json['restaurant_id'],
+        title: json['title'],
+        description: json['description'],
+        imageUrl: json['image_url'],
+        discountPercent: json['discount_percent'],
+        isActive: json['is_active'] ?? true,
       );
 }

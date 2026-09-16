@@ -1115,6 +1115,7 @@ class _BottomNav extends StatelessWidget {
               final item   = items[i];
               return Expanded(
                 child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
                   onTap: () => onTap(i),
                   child: AnimatedContainer(
                     duration: const Duration(milliseconds: 200),
