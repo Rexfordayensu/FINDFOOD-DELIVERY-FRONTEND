@@ -1,49 +1,43 @@
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import '../../theme.dart';
 import '../../widgets/widgets.dart';
 import '../../models/models.dart';
 import '../../services/api_service.dart';
 import '../../services/providers.dart';
+import '../../services/local_customer_store.dart';
+import '../auth/login_screen.dart';
+import 'menu_detail_screen.dart';
+import 'cart_screen.dart';
 import '../../widgets/greeting_header.dart';
 
-// ── Cuisine config with real Unsplash food images ────────────────────────────
+// ── Cuisine colors used for image-free restaurant cards ──────────────────────
 const _cuisineData = {
   'ghanaian':  {
-    'image': 'https://images.unsplash.com/photo-1604329760661-e71dc83f8f26?w=800&q=80',
     'colors': [Color(0xFF7B1400), Color(0xFFD4380D)],
   },
   'local':     {
-    'image': 'https://images.unsplash.com/photo-1604329760661-e71dc83f8f26?w=800&q=80',
     'colors': [Color(0xFF7B1400), Color(0xFFD4380D)],
   },
   'pizza':     {
-    'image': 'https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?w=800&q=80',
     'colors': [Color(0xFF0D2E6B), Color(0xFF1565C0)],
   },
   'italian':   {
-    'image': 'https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?w=800&q=80',
     'colors': [Color(0xFF0D2E6B), Color(0xFF1565C0)],
   },
   'chinese':   {
-    'image': 'https://images.unsplash.com/photo-1563245372-f21724e3856d?w=800&q=80',
     'colors': [Color(0xFF0A3D1F), Color(0xFF2E7D32)],
   },
   'fast food': {
-    'image': 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=800&q=80',
     'colors': [Color(0xFF3E1A00), Color(0xFFBF5600)],
   },
   'burger':    {
-    'image': 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=800&q=80',
     'colors': [Color(0xFF3E1A00), Color(0xFFBF5600)],
   },
   'seafood':   {
-    'image': 'https://images.unsplash.com/photo-1565680018434-b513d5e5fd47?w=800&q=80',
     'colors': [Color(0xFF003459), Color(0xFF0077B6)],
   },
   'default':   {
-    'image': 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=800&q=80',
     'colors': [Color(0xFF1A1A2E), Color(0xFF16213E)],
   },
 };
@@ -55,28 +49,22 @@ Map<String, dynamic> _cuisineFor(String c) {
   }
   return _cuisineData['default']!;
 }
-String _imageFor(dynamic r) {
-  String cuisine = '';
+String? _imageFor(dynamic r) {
   String? imageUrl;
 
   if (r is Map) {
-    imageUrl = r['image_url']?.toString();
-    cuisine = r['cuisine_type']?.toString() ?? '';
+    imageUrl = r['banner_url']?.toString() ?? r['image_url']?.toString();
   } else if (r != null) {
     try {
-      imageUrl = (r as dynamic).imageUrl?.toString();
-      cuisine = (r as dynamic).cuisineType?.toString() ?? '';
+        imageUrl = (r as dynamic).bannerUrl?.toString() ??
+          (r as dynamic).imageUrl?.toString();
     } catch (_) {}
   }
 
-  // 1. Prioritize uploaded backend image
   if (imageUrl != null && imageUrl.trim().isNotEmpty) {
     return getFullImageUrl(imageUrl);
   }
-
-  // 2. Fallback to cuisine stock photos if image_url is null/empty
-  final data = _cuisineFor(cuisine);
-  return data['image'] ?? _cuisineData['default']!['image']!;
+  return null;
 }
 
 // ── Demo data ─────────────────────────────────────────────────────────────────
@@ -93,7 +81,7 @@ final _demoRestaurants = [
 String getFullImageUrl(String? url) {
   if (url == null || url.isEmpty) return '';
   if (url.startsWith('http://') || url.startsWith('https://')) return url;
-  return 'http://localhost:8000$url';
+  return 'https://findfooddelivery-backend.onrender.com/$url';
 }
 
 class FoodFeedScreen extends StatefulWidget {
@@ -110,6 +98,10 @@ class _FoodFeedScreenState extends State<FoodFeedScreen>
   String _error    = '';
   String _search   = '';
   String _filter   = 'All';
+  String _sortBy   = 'recommended';
+  Set<int> _favoriteIds = {};
+  List<int> _recentIds = [];
+  List<String> _recentSearches = [];
   int    _navIndex = 0;
 
   final _filters    = ['All', 'Ghanaian', 'Fast food', 'Pizza', 'Chinese', 'Seafood'];
@@ -125,6 +117,7 @@ class _FoodFeedScreenState extends State<FoodFeedScreen>
       vsync: this,
       duration: const Duration(milliseconds: 900),
     );
+    _restoreLocalState();
     _load();
   }
 
@@ -150,8 +143,21 @@ class _FoodFeedScreenState extends State<FoodFeedScreen>
     }
   }
 
+  Future<void> _restoreLocalState() async {
+    final favorites = await LocalCustomerStore.favoriteRestaurantIds();
+    final recentIds = await LocalCustomerStore.recentlyViewedIds();
+    final searches = await LocalCustomerStore.recentSearches();
+    if (!mounted) return;
+             setState(() {
+      _favoriteIds = favorites.toSet();
+      _recentIds = recentIds.toList();
+      _recentSearches = searches;
+    });
+    _applyFilter();
+  }
+
   void _applyFilter() {
-    _filtered = _restaurants.where((r) {
+    final matching = _restaurants.where((r) {
       final ms = _search.isEmpty ||
           r.name.toLowerCase().contains(_search.toLowerCase()) ||
           r.cuisineType.toLowerCase().contains(_search.toLowerCase());
@@ -159,7 +165,50 @@ class _FoodFeedScreenState extends State<FoodFeedScreen>
           r.cuisineType.toLowerCase().contains(_filter.toLowerCase());
       return ms && mf;
     }).toList();
+    if (_sortBy == 'name') {
+      matching.sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+    } else if (_sortBy == 'available') {
+      matching.sort((a, b) => (b.isActive ? 1 : 0).compareTo(a.isActive ? 1 : 0));
+    } else if (_sortBy == 'recent') {
+      matching.sort((a, b) => _recentPosition(a.id).compareTo(_recentPosition(b.id)));
+    }
+    _filtered = matching;
     if (mounted) _staggerCtrl.forward(from: 0);
+  }
+
+  int _recentPosition(int id) {
+    final position = _recentIds.indexOf(id);
+    return position == -1 ? _recentIds.length + 1 : position;
+  }
+
+  Future<void> _toggleFavorite(Restaurant restaurant) async {
+    await LocalCustomerStore.toggleFavorite(restaurant.id);
+    if (!mounted) return;
+    setState(() {
+      if (!_favoriteIds.add(restaurant.id)) _favoriteIds.remove(restaurant.id);
+    });
+  }
+
+  Future<void> _rememberViewed(Restaurant restaurant) async {
+    await LocalCustomerStore.addRecentlyViewed(restaurant.id);
+    if (!mounted) return;
+    setState(() {
+      _recentIds.remove(restaurant.id);
+      _recentIds.insert(0, restaurant.id);
+    });
+  }
+
+  Future<void> _rememberSearch(String value) async {
+    final query = value.trim();
+    if (query.length < 2) return;
+    await LocalCustomerStore.addSearch(query);
+    if (!mounted) return;
+    setState(() {
+      _recentSearches.removeWhere(
+          (item) => item.toLowerCase() == query.toLowerCase());
+      _recentSearches.insert(0, query);
+      if (_recentSearches.length > 8) _recentSearches.removeLast();
+    });
   }
 
   @override
@@ -185,7 +234,11 @@ class _FoodFeedScreenState extends State<FoodFeedScreen>
               textPri: textPri, textSec: textSec,
               textHint: textHint, surf: surf, border: border,
               searchCtrl: _searchCtrl,
-              onSearch: (v) => setState(() { _search = v; _applyFilter(); }),
+              recentSearches: _recentSearches,
+              onSearch: (v) {
+                setState(() { _search = v; _applyFilter(); });
+                _rememberSearch(v);
+              },
             ),
 
             // ── FILTER CHIPS ──────────────────────────────────
@@ -234,11 +287,20 @@ class _FoodFeedScreenState extends State<FoodFeedScreen>
                                         mainAxisAlignment:
                                             MainAxisAlignment.spaceBetween,
                                         children: [
-                                          Text('All restaurants',
-                                              style: TextStyle(
+                                          Expanded(
+                                            child: Text('All restaurants',
+                                                style: TextStyle(
                                                   color: textPri,
                                                   fontSize: 17,
                                                   fontWeight: FontWeight.w700)),
+                                          ),
+                                          _SortButton(
+                                            selected: _sortBy,
+                                            onChanged: (value) => setState(() {
+                                              _sortBy = value;
+                                              _applyFilter();
+                                            }),
+                                          ),
                                           Container(
                                             padding: const EdgeInsets.symmetric(
                                                 horizontal: 10, vertical: 4),
@@ -266,9 +328,20 @@ class _FoodFeedScreenState extends State<FoodFeedScreen>
                                     child: _RestaurantCard(
                                       restaurant: r,
                                       isDemo: r.id < 0,
+                                        isFavorite: _favoriteIds.contains(r.id),
+                                        onFavorite: () => _toggleFavorite(r),
                                       onTap: r.id < 0
-                                          ? () => _showComingSoon(context, r)
-                                            : () => context.go('/restaurants/${r.id}', extra: r),
+                                          ? () {
+                                            _rememberViewed(r);
+                                            _showComingSoon(context, r);
+                                          }
+                                          : () {
+                                            _rememberViewed(r);
+                                            Navigator.push(context,
+                                              MaterialPageRoute(
+                                                builder: (_) =>
+                                                  MenuDetailScreen(restaurant: r)));
+                                          },
                                     ),
                                   );
                                 },
@@ -285,19 +358,17 @@ class _FoodFeedScreenState extends State<FoodFeedScreen>
         cartCount: cart.itemCount,
         onTap: (i) {
           if (i == 2) {
-            context.go('/cart');
+            Navigator.push(context,
+                MaterialPageRoute(builder: (_) => const CartScreen()));
             return;
           }
           if (i == 4) {
             if (auth.isLoggedIn) {
-              context.go('/profile');
+              _showProfileSheet(context, auth, themeP);
             } else {
-              context.go('/login?returnTo=%2Fprofile');
+              Navigator.push(context,
+                  MaterialPageRoute(builder: (_) => const LoginScreen()));
             }
-            return;
-          }
-          if (i == 3) {
-            context.go('/orders');
             return;
           }
           setState(() => _navIndex = i);
@@ -366,6 +437,68 @@ class _FoodFeedScreenState extends State<FoodFeedScreen>
     );
   }
 
+  void _showProfileSheet(BuildContext ctx, AuthProvider auth,
+      ThemeProvider themeP) {
+    showModalBottomSheet(
+      context: ctx,
+      backgroundColor: AppColors.card(ctx),
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      builder: (_) => Padding(
+        padding: const EdgeInsets.fromLTRB(24, 12, 24, 32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(width: 36, height: 4,
+                decoration: BoxDecoration(
+                    color: AppColors.border(ctx),
+                    borderRadius: BorderRadius.circular(2))),
+            const SizedBox(height: 24),
+            CircleAvatar(
+              radius: 34,
+              backgroundColor: AppTheme.accentDim,
+              child: Text(
+                (auth.role ?? 'U')[0].toUpperCase(),
+                style: const TextStyle(color: AppTheme.accent,
+                    fontSize: 26, fontWeight: FontWeight.w900),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(auth.role?.toUpperCase() ?? 'USER',
+                style: TextStyle(color: AppColors.textPrimary(ctx),
+                    fontSize: 17, fontWeight: FontWeight.w800)),
+            const SizedBox(height: 4),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
+              decoration: BoxDecoration(
+                color: AppTheme.accent.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Text(auth.role ?? '',
+                  style: const TextStyle(color: AppTheme.accent,
+                      fontSize: 12, fontWeight: FontWeight.w700)),
+            ),
+            const SizedBox(height: 28),
+            // Theme toggle
+            _SheetBtn(
+              icon: themeP.isDark
+                  ? Icons.wb_sunny_rounded : Icons.nightlight_round,
+              label: themeP.isDark ? 'Switch to light mode' : 'Switch to dark mode',
+              color: AppTheme.accent,
+              onTap: () { Navigator.pop(ctx); themeP.toggle(); },
+            ),
+            const SizedBox(height: 10),
+            _SheetBtn(
+              icon: Icons.logout_rounded,
+              label: 'Sign out',
+              color: AppTheme.danger,
+              onTap: () { Navigator.pop(ctx); auth.logout(); },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 // ─── HEADER ───────────────────────────────────────────────────────────────────
@@ -375,31 +508,40 @@ class _Header extends StatelessWidget {
   final ThemeProvider themeP;
   final Color textPri, textSec, textHint, surf, border;
   final TextEditingController searchCtrl;
+  final List<String> recentSearches;
   final ValueChanged<String> onSearch;
 
   const _Header({
     required this.auth, required this.cart, required this.themeP,
     required this.textPri, required this.textSec, required this.textHint,
     required this.surf, required this.border,
-    required this.searchCtrl, required this.onSearch,
+    required this.searchCtrl, required this.recentSearches,
+    required this.onSearch,
   });
 
   @override
   Widget build(BuildContext context) {
     return Container(
       color: AppColors.bg(context),
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 10),
+      padding: const EdgeInsets.fromLTRB(16, 10, 16, 8),
       child: Column(
         children: [
           Row(
             children: [
               Container(
-                width: 38, height: 38,
+                width: 36, height: 36,
                 decoration: BoxDecoration(
-                    color: AppTheme.accent,
-                    borderRadius: BorderRadius.circular(11)),
+                    color: AppTheme.accent.withValues(alpha: 0.92),
+                  borderRadius: BorderRadius.circular(10),
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppTheme.accent.withValues(alpha: 0.18),
+                      blurRadius: 12,
+                      offset: const Offset(0, 4),
+                    ),
+                  ]),
                 child: const Icon(Icons.fastfood_rounded,
-                    color: Colors.black, size: 20),
+                  color: Colors.black, size: 19),
               ),
               const SizedBox(width: 10),
               Column(
@@ -407,17 +549,9 @@ class _Header extends StatelessWidget {
                 children: [
                   Text('FINDFOOD',
                       style: TextStyle(color: textPri,
-                          fontWeight: FontWeight.w900, fontSize: 16,
-                          letterSpacing: 0.4)),
-                  Row(children: [
-                    const Icon(Icons.location_on_rounded,
-                        color: AppTheme.accent, size: 11),
-                    const SizedBox(width: 2),
-                    Text('East Legon, Accra',
-                        style: TextStyle(color: textSec, fontSize: 11)),
-                    Icon(Icons.keyboard_arrow_down_rounded,
-                        color: textHint, size: 14),
-                  ]),
+                        fontFamily: 'Georgia',
+                        fontWeight: FontWeight.w700, fontSize: 14,
+                        letterSpacing: 0.6)),
                 ],
               ),
               const Spacer(),
@@ -432,7 +566,8 @@ class _Header extends StatelessWidget {
                 icon: Icons.shopping_bag_outlined,
                 color: textPri, bg: surf, border: border,
                 badge: cart.itemCount,
-                  onTap: () => context.go('/cart'),
+                onTap: () => Navigator.push(context,
+                    MaterialPageRoute(builder: (_) => const CartScreen())),
                 tooltip: 'Cart',
               ),
               const SizedBox(width: 8),
@@ -445,7 +580,8 @@ class _Header extends StatelessWidget {
                     ? AppTheme.accent.withValues(alpha: 0.3) : border,
                 onTap: () {
                   if (!auth.isLoggedIn) {
-                    context.go('/login?returnTo=%2F');
+                    Navigator.push(context, MaterialPageRoute(
+                        builder: (_) => const LoginScreen()));
                   }
                 },
                 tooltip: auth.isLoggedIn ? 'Profile' : 'Sign in',
@@ -457,9 +593,9 @@ class _Header extends StatelessWidget {
             GreetingHeader(
               name: auth.name!,
               role: auth.role ?? 'customer',
-              padding: const EdgeInsets.only(top: 14, bottom: 2),
+              padding: const EdgeInsets.only(top: 12, bottom: 0),
             ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 10),
           // Animated search bar
           _AnimatedSearchBar(
             controller: searchCtrl,
@@ -467,6 +603,33 @@ class _Header extends StatelessWidget {
             surf: surf, border: border,
             onChanged: onSearch,
           ),
+          if (recentSearches.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            SizedBox(
+              height: 26,
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                itemCount: recentSearches.length,
+                separatorBuilder: (_, __) => const SizedBox(width: 6),
+                itemBuilder: (_, i) => GestureDetector(
+                  onTap: () {
+                    searchCtrl.text = recentSearches[i];
+                    onSearch(recentSearches[i]);
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: surf.withValues(alpha: 0.62),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: border.withValues(alpha: 0.7)),
+                    ),
+                    child: Text(recentSearches[i],
+                        style: TextStyle(color: textSec, fontSize: 11)),
+                  ),
+                ),
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -496,19 +659,29 @@ class _AnimatedSearchBarState extends State<_AnimatedSearchBar> {
   Widget build(BuildContext context) {
     return AnimatedContainer(
       duration: const Duration(milliseconds: 200),
-      height: 46,
+      height: 44,
       decoration: BoxDecoration(
-        color: widget.surf,
+        color: widget.surf.withValues(alpha: 0.72),
         borderRadius: BorderRadius.circular(14),
         border: Border.all(
-          color: _focused ? AppTheme.accent : widget.border,
+          color: _focused
+              ? AppTheme.accent
+              : widget.border.withValues(alpha: 0.72),
           width: _focused ? 1.5 : 1,
         ),
-        boxShadow: _focused
-            ? [BoxShadow(
-                color: AppTheme.accent.withValues(alpha: 0.12),
-                blurRadius: 12, offset: const Offset(0, 3))]
-            : [],
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.08),
+            blurRadius: 14,
+            offset: const Offset(0, 4),
+          ),
+          if (_focused)
+            BoxShadow(
+              color: AppTheme.accent.withValues(alpha: 0.14),
+              blurRadius: 14,
+              offset: const Offset(0, 3),
+            ),
+        ],
       ),
       child: Row(
         children: [
@@ -590,10 +763,14 @@ class _FilterRow extends StatelessWidget {
               duration: const Duration(milliseconds: 200),
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 7),
               decoration: BoxDecoration(
-                color: active ? AppTheme.accent : surf,
+                color: active
+                  ? AppTheme.accent.withValues(alpha: 0.92)
+                  : surf.withValues(alpha: 0.68),
                 borderRadius: BorderRadius.circular(20),
                 border: Border.all(
-                    color: active ? AppTheme.accent : border),
+                  color: active
+                    ? AppTheme.accent
+                    : border.withValues(alpha: 0.7)),
                 boxShadow: active
                     ? [BoxShadow(
                         color: AppTheme.accent.withValues(alpha: 0.25),
@@ -610,6 +787,31 @@ class _FilterRow extends StatelessWidget {
           );
         },
       ),
+    );
+  }
+}
+
+class _SortButton extends StatelessWidget {
+  final String selected;
+  final ValueChanged<String> onChanged;
+
+  const _SortButton({required this.selected, required this.onChanged});
+
+  @override
+  Widget build(BuildContext context) {
+    return PopupMenuButton<String>(
+      initialValue: selected,
+      onSelected: onChanged,
+      tooltip: 'Sort restaurants',
+      padding: EdgeInsets.zero,
+      icon: Icon(Icons.tune_rounded,
+          color: AppColors.textSecondary(context), size: 19),
+      itemBuilder: (_) => const [
+        PopupMenuItem(value: 'recommended', child: Text('Recommended')),
+        PopupMenuItem(value: 'recent', child: Text('Recently viewed')),
+        PopupMenuItem(value: 'available', child: Text('Open first')),
+        PopupMenuItem(value: 'name', child: Text('Name A-Z')),
+      ],
     );
   }
 }
@@ -651,11 +853,15 @@ class _AnimatedCard extends StatelessWidget {
 class _RestaurantCard extends StatefulWidget {
   final Restaurant restaurant;
   final VoidCallback? onTap;
+  final VoidCallback? onFavorite;
+  final bool isFavorite;
   final bool isDemo;
 
   const _RestaurantCard({
     required this.restaurant,
     this.onTap,
+    this.onFavorite,
+    this.isFavorite = false,
     this.isDemo = false,
   });
 
@@ -693,7 +899,7 @@ class _RestaurantCardState extends State<_RestaurantCard>
     final textHint= AppColors.textHint(context);
 
     return Padding(
-      padding: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.only(bottom: 18),
       child: MouseRegion(
         onEnter: (_) => setState(() => _hovered = true),
         onExit:  (_) => setState(() => _hovered = false),
@@ -706,8 +912,8 @@ class _RestaurantCardState extends State<_RestaurantCard>
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 200),
               decoration: BoxDecoration(
-                color: card,
-                borderRadius: BorderRadius.circular(18),
+                color: card.withValues(alpha: 0.84),
+                borderRadius: BorderRadius.circular(22),
                 border: Border.all(
                     color: _hovered
                         ? AppTheme.accent.withValues(alpha: 0.4) : border,
@@ -730,23 +936,24 @@ class _RestaurantCardState extends State<_RestaurantCard>
                     children: [
                       AnimatedContainer(
                         duration: const Duration(milliseconds: 200),
-                        height: _hovered ? 158 : 148,
+                        height: _hovered ? 166 : 156,
                         decoration: const BoxDecoration(
                           borderRadius: BorderRadius.vertical(
-                              top: Radius.circular(18)),
+                              top: Radius.circular(22)),
                         ),
                         child: ClipRRect(
                           borderRadius: const BorderRadius.vertical(
-                              top: Radius.circular(18)),
+                              top: Radius.circular(22)),
                           child: Stack(
                             fit: StackFit.expand,
                             children: [
                               // Real food image
-                              Image.network(
-                                _imageFor(r), // Uses backend URL if available, else falls back to Unsplash
-                                key: ValueKey(r.id),
-                                fit: BoxFit.cover,
-                                loadingBuilder: (_, child, progress) {
+                              if (_imageFor(r) != null)
+                                Image.network(
+                                  _imageFor(r)!,
+                                  key: ValueKey(r.id),
+                                  fit: BoxFit.cover,
+                                  loadingBuilder: (_, child, progress) {
                                   if (progress == null) return child;
                                   return Container(
                                     decoration: BoxDecoration(
@@ -762,8 +969,8 @@ class _RestaurantCardState extends State<_RestaurantCard>
                                           strokeWidth: 2),
                                     ),
                                   );
-                                },
-                                errorBuilder: (_, __, ___) => Container(
+                                  },
+                                  errorBuilder: (_, __, ___) => Container(
                                   decoration: BoxDecoration(
                                     gradient: LinearGradient(
                                       begin: Alignment.topLeft,
@@ -775,8 +982,18 @@ class _RestaurantCardState extends State<_RestaurantCard>
                                     child: Icon(Icons.restaurant_rounded,
                                         color: Colors.white54, size: 48),
                                   ),
+                                  ),
+                                )
+                              else
+                                Container(
+                                  decoration: BoxDecoration(
+                                    gradient: LinearGradient(colors: colors),
+                                  ),
+                                  child: const Center(
+                                    child: Icon(Icons.add_a_photo_outlined,
+                                        color: Colors.white70, size: 34),
+                                  ),
                                 ),
-                              ),
                               // Dark gradient overlay so text stays readable
                               AnimatedContainer(
                                 duration: const Duration(milliseconds: 200),
@@ -798,37 +1015,63 @@ class _RestaurantCardState extends State<_RestaurantCard>
                       // Status badge
                       Positioned(
                         top: 12, right: 12,
-                        child: AnimatedContainer(
-                          duration: const Duration(milliseconds: 200),
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 10, vertical: 5),
-                          decoration: BoxDecoration(
-                            color: Colors.black.withValues(alpha: 0.55),
-                            borderRadius: BorderRadius.circular(20),
-                            border: r.isActive
-                                ? Border.all(
-                                    color: AppTheme.success.withValues(alpha: 0.4))
-                                : null,
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Container(
-                                width: 6, height: 6,
-                                decoration: BoxDecoration(
-                                  color: r.isActive
-                                      ? AppTheme.success : Colors.grey,
-                                  shape: BoxShape.circle,
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            if (widget.onFavorite != null)
+                              GestureDetector(
+                                onTap: widget.onFavorite,
+                                child: Container(
+                                  padding: const EdgeInsets.all(8),
+                                  decoration: BoxDecoration(
+                                    color: Colors.black.withValues(alpha: 0.5),
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: Icon(
+                                    widget.isFavorite
+                                        ? Icons.favorite_rounded
+                                        : Icons.favorite_border_rounded,
+                                    color: widget.isFavorite
+                                        ? AppTheme.accent
+                                        : Colors.white,
+                                    size: 17,
+                                  ),
                                 ),
                               ),
-                              const SizedBox(width: 5),
-                              Text(r.isActive ? 'Open' : 'Closed',
-                                  style: const TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.w700)),
-                            ],
-                          ),
+                            const SizedBox(width: 8),
+                            AnimatedContainer(
+                              duration: const Duration(milliseconds: 200),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 10, vertical: 5),
+                              decoration: BoxDecoration(
+                                color: Colors.black.withValues(alpha: 0.55),
+                                borderRadius: BorderRadius.circular(20),
+                                border: r.isActive
+                                    ? Border.all(
+                                        color: AppTheme.success.withValues(alpha: 0.4))
+                                    : null,
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Container(
+                                    width: 6, height: 6,
+                                    decoration: BoxDecoration(
+                                      color: r.isActive
+                                          ? AppTheme.success : Colors.grey,
+                                      shape: BoxShape.circle,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 5),
+                                  Text(r.isActive ? 'Open' : 'Closed',
+                                      style: const TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.w700)),
+                                ],
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                       // Demo badge
@@ -874,7 +1117,7 @@ class _RestaurantCardState extends State<_RestaurantCard>
 
                   // ── Info ────────────────────────────────────
                   Padding(
-                    padding: const EdgeInsets.all(14),
+                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -884,8 +1127,9 @@ class _RestaurantCardState extends State<_RestaurantCard>
                               child: Text(r.name,
                                   style: TextStyle(
                                       color: textPri,
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w700),
+                                      fontSize: 17,
+                                      fontWeight: FontWeight.w700,
+                                      letterSpacing: -0.1),
                                   overflow: TextOverflow.ellipsis),
                             ),
                             const SizedBox(width: 8),
@@ -905,7 +1149,7 @@ class _RestaurantCardState extends State<_RestaurantCard>
                         const SizedBox(height: 4),
                         Text(r.cuisineType,
                             style: TextStyle(color: textSec, fontSize: 13)),
-                        const SizedBox(height: 8),
+                        const SizedBox(height: 11),
                         Row(
                           children: [
                             Icon(Icons.access_time_rounded,
@@ -926,7 +1170,7 @@ class _RestaurantCardState extends State<_RestaurantCard>
                             ),
                           ],
                         ),
-                        const SizedBox(height: 10),
+                        const SizedBox(height: 12),
                         // Pills row
                         Row(
                           children: [
@@ -937,15 +1181,15 @@ class _RestaurantCardState extends State<_RestaurantCard>
                         ),
                         // CTA button — full width, always visible
                         if (widget.onTap != null) ...[
-                          const SizedBox(height: 12),
+                          const SizedBox(height: 14),
                           GestureDetector(
                             onTap: widget.onTap,
                             child: Container(
                               width: double.infinity,
                               padding: const EdgeInsets.symmetric(vertical: 13),
                               decoration: BoxDecoration(
-                                color: AppTheme.accent,
-                                borderRadius: BorderRadius.circular(12),
+                                color: AppTheme.accent.withValues(alpha: 0.92),
+                                borderRadius: BorderRadius.circular(14),
                                 boxShadow: [
                                   BoxShadow(
                                     color: AppTheme.accent.withValues(alpha: 0.35),
@@ -1115,7 +1359,6 @@ class _BottomNav extends StatelessWidget {
               final item   = items[i];
               return Expanded(
                 child: GestureDetector(
-                  behavior: HitTestBehavior.opaque,
                   onTap: () => onTap(i),
                   child: AnimatedContainer(
                     duration: const Duration(milliseconds: 200),
@@ -1178,6 +1421,47 @@ class _BottomNav extends StatelessWidget {
               );
             }),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+// ─── PROFILE SHEET BUTTON ─────────────────────────────────────────────────────
+class _SheetBtn extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final Color color;
+  final VoidCallback onTap;
+
+  const _SheetBtn({
+    required this.icon, required this.label,
+    required this.color, required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(vertical: 14),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: color.withValues(alpha: 0.25)),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, color: color, size: 18),
+            const SizedBox(width: 10),
+            Text(label,
+                style: TextStyle(
+                    color: color,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 15)),
+          ],
         ),
       ),
     );

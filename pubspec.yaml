@@ -10,7 +10,9 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  provider: ^6.1.2
+  cupertino_icons: ^1.0.8    #  Aligned with "flutter:"
+  provider: ^6.1.2           #  Aligned with "flutter:"
+
   http: ^1.2.0
   google_sign_in: ^6.1.6   # FIX: 6.1.x uses GoogleSignIn() constructor (stable)
   web_socket_channel: 3.0.3 # NEW: for live real-time chat

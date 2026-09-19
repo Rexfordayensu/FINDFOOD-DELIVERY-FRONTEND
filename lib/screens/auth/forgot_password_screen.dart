@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../services/api_service.dart';
 import '../../theme.dart';
 import '../../widgets/widgets.dart';
+import '../../models/models.dart';
 
 class ForgotPasswordScreen extends StatefulWidget {
   const ForgotPasswordScreen({super.key});
@@ -38,13 +39,15 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
     });
 
     try {
-      final message = await ApiService.forgotPassword(email);
-      if (!mounted) return;
-      setState(() {
-        _isSubmitted = true;
-        _serverMessage = message;
-      });
-      _showMessage(message, AppTheme.success);
+    await ApiService.forgotPassword(_emailController.text.trim()); // Delete the "final message = " part
+    if (!mounted) return;
+    
+    setState(() {
+      _isSubmitted = true;
+      _serverMessage = 'Password reset email sent successfully!'; // Use a hardcoded success message string
+    });
+    
+    _showMessage('Success! Check your email.', AppTheme.success); // Use a hardcoded message string here too
     } on PasswordResetException catch (e) {
       if (!mounted) return;
       _showMessage(e.message, AppTheme.danger);

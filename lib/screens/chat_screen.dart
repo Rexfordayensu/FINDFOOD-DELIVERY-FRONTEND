@@ -145,10 +145,12 @@ class _ChatScreenState extends State<ChatScreen> {
       final chatMsg = msg as ChatMessage;
 
       if (!_messageIds.contains(chatMsg.id)) {
-        setState(() {
-          _messages.add(msg);
-          _messageIds.add(msg.id);
-        });
+       setState(() {
+        // Convert the raw map data into a structured ChatMessage object
+        final chatMessage = ChatMessage.fromJson(msg);
+        _messages.add(chatMessage);
+        _messageIds.add(chatMessage.id);
+      });
         _scrollToBottom();
       }
     } catch (e) {

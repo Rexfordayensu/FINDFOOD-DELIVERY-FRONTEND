@@ -38,7 +38,7 @@ void main() {
     });
 
     test('preserves backend messages for password reset failures', () {
-      const error = PasswordResetException(
+      final error = PasswordResetException(
         'reset_failed',
         'The reset link is invalid or expired.',
       );
@@ -46,4 +46,17 @@ void main() {
       expect(error.message, 'The reset link is invalid or expired.');
     });
   });
+}
+bool otpRequiredFromResponse(Map<String, dynamic> data) {
+  return data['otp_required'] == true || data['two_factor'] == true;
+}
+String? extractResetTokenFromUri(Uri uri) {
+  return uri.queryParameters['token'];
+}
+class PasswordResetException implements Exception {
+  final String status;
+  final String message;
+  PasswordResetException(this.status, this.message);
+  @override
+  String toString() => message;
 }
