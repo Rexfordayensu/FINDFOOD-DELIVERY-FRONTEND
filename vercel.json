@@ -1,13 +1,6 @@
 {
-  "version": 2,
-  "framework": null,
-  "buildCommand": "if [ ! -d \"$HOME/flutter\" ]; then git clone https://github.com -b stable $HOME/flutter; fi; export PATH=\"$PATH:$HOME/flutter/bin\"; flutter config --enable-web; flutter build web --release",
-  "outputDirectory": "build/web",
   "cleanUrls": true,
   "rewrites": [
-    {
-      "source": "/(.*)",
-      "destination": "/index.html"
-    }
+    { "source": "/(.*)", "destination": "/index.html" }
   ]
 }
