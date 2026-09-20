@@ -756,3 +756,7 @@ class _SocialBtnState extends State<_SocialBtn> {
     );
   }
 }
+  bool otpRequiredFromResponse(Map<String, dynamic> data) {
+    return data['otp_required'] == true || data['two_factor'] == true;
+  }
+

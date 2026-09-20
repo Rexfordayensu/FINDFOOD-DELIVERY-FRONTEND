@@ -3,6 +3,8 @@ import 'package:go_router/go_router.dart';
 import '../../services/api_service.dart';
 import '../../theme.dart';
 import '../../widgets/widgets.dart';
+import '../../models/models.dart';
+
 
 class ResetPasswordScreen extends StatefulWidget {
   final String? token;
@@ -58,11 +60,11 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
 
     setState(() => _isLoading = true);
 
-    try {
-      final message = await ApiService.resetPassword(token, newPassword);
-      if (!mounted) return;
-      _showMessage(message, AppTheme.success);
-      await Future.delayed(const Duration(milliseconds: 700));
+   try {
+    await ApiService.resetPassword(token, newPassword);
+    if (!mounted) return;
+    _showMessage('Password reset successfully! Please log in.', AppTheme.success);
+    await Future.delayed(const Duration(milliseconds: 700));
       if (!mounted) return;
       context.go('/login');
     } on PasswordResetException catch (e) {
@@ -228,4 +230,7 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
       ),
     );
   }
+}
+String extractResetTokenFromUri(Uri uri) {
+  return uri.queryParameters['token'] ?? '';
 }

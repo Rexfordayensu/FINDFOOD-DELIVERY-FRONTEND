@@ -21,6 +21,7 @@ class _CartScreenState extends State<CartScreen> {
   bool _isLoading = false;
   Timer? _paymentVerificationTimer;
   bool _hasNavigatedToTracking = false;
+  bool _isDelivery = true;
 
   final List<PaymentProviderOption> _providers = const [
     PaymentProviderOption(value: 'paystack', label: 'Paystack'),
@@ -91,6 +92,7 @@ class _CartScreenState extends State<CartScreen> {
         token: auth.token!,
         restaurantId: cart.restaurantId!,
         items: cart.orderPayload,
+        fulfillmentMethod: _isDelivery ? 'delivery' : 'pickup',
       );
 
       final init = await ApiService.initializePayment(
@@ -217,6 +219,60 @@ class _CartScreenState extends State<CartScreen> {
             ),
             child: Column(
               children: [
+                  Padding(
+          padding: const EdgeInsets.only(bottom: 12.0),
+          child: Container(
+            width: double.infinity,
+            decoration: BoxDecoration(
+              color: AppTheme.darkBorder, // Blends perfectly with your theme palette!
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: GestureDetector(
+                    onTap: () => setState(() => _isDelivery = true),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      decoration: BoxDecoration(
+                        color: _isDelivery ? AppTheme.accent : Colors.transparent, // Uses your theme color highlight
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Text(
+                        '🛵 Delivery',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: _isDelivery ? Colors.white : Colors.grey,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                Expanded(
+                  child: GestureDetector(
+                    onTap: () => setState(() => _isDelivery = false),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      decoration: BoxDecoration(
+                        color: !_isDelivery ? AppTheme.accent : Colors.transparent,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Text(
+                        '🛍️ Pickup',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: !_isDelivery ? Colors.white : Colors.grey,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
                 _summaryRow('Subtotal', cart.displayTotal),
                 const SizedBox(height: 8),
                 _summaryRow('Delivery fee', 'Free'),

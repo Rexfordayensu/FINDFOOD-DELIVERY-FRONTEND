@@ -1,8 +1,10 @@
 import '../customer/food_feed_screen.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../../theme.dart';
 import '../../widgets/widgets.dart';
+import '../../widgets/greeting_header.dart';
 import '../../services/providers.dart';
 import '../../services/api_service.dart';
 
@@ -18,6 +20,14 @@ class AdminDashboard extends StatefulWidget {
 class _AdminDashboardState extends State<AdminDashboard> {
   int _selectedIndex = 0;
   int _pendingApprovalsCount = 0;
+  String _navQuery = '';
+  bool _sidebarCollapsed = false;
+
+  final _localNotifications = const [
+    {'title': 'New approval request', 'detail': 'A restaurant is waiting for review.', 'icon': Icons.storefront_outlined},
+    {'title': 'System check complete', 'detail': 'All payment services are responding.', 'icon': Icons.check_circle_outline},
+    {'title': 'Weekly summary ready', 'detail': 'Your platform activity has been updated.', 'icon': Icons.insights_outlined},
+  ];
 
   final _navItems = [
     {'icon': Icons.grid_view_rounded,           'label': 'Overview'},
@@ -47,6 +57,51 @@ class _AdminDashboardState extends State<AdminDashboard> {
     }
   }
 
+  void _showNotifications() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: AppColors.card(context),
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      builder: (_) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 14, 20, 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(child: Container(width: 36, height: 4,
+                  decoration: BoxDecoration(color: AppColors.border(context),
+                      borderRadius: BorderRadius.circular(4)))),
+              const SizedBox(height: 18),
+              Text('Notifications', style: TextStyle(
+                  color: AppColors.textPrimary(context), fontSize: 20,
+                  fontWeight: FontWeight.w800)),
+              const SizedBox(height: 12),
+              ..._localNotifications.map((item) => ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: Container(
+                      padding: const EdgeInsets.all(9),
+                      decoration: BoxDecoration(
+                          color: AppTheme.accent.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(10)),
+                      child: Icon(item['icon'] as IconData,
+                          color: AppTheme.accent, size: 19),
+                    ),
+                    title: Text(item['title'] as String,
+                        style: TextStyle(color: AppColors.textPrimary(context),
+                            fontWeight: FontWeight.w700, fontSize: 13)),
+                    subtitle: Text(item['detail'] as String,
+                        style: TextStyle(color: AppColors.textSecondary(context),
+                            fontSize: 12)),
+                  )),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildPage() {
     switch (_selectedIndex) {
       case 0: return _OverviewPage(onNavigate: (i) => setState(() => _selectedIndex = i));
@@ -70,7 +125,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
     final auth       = Provider.of<AuthProvider>(context);
 
     Widget sidebar = Container(
-      width: isWide ? 220 : double.infinity,
+      width: isWide ? (_sidebarCollapsed ? 76 : 220) : double.infinity,
       decoration: BoxDecoration(
         color: surf,
         border: Border(right: BorderSide(color: border, width: 1)),
@@ -92,23 +147,31 @@ class _AdminDashboardState extends State<AdminDashboard> {
                   child: const Icon(Icons.fastfood_rounded,
                       color: Colors.black, size: 20),
                 ),
-                const SizedBox(width: 10),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('FindFood',
-                        style: TextStyle(
-                            color: textPri,
-                            fontWeight: FontWeight.w800,
-                            fontSize: 14,
-                            letterSpacing: 0.3)),
-                    const Text('Admin HQ',
-                        style: TextStyle(
-                            color: AppTheme.accent,
-                            fontSize: 11,
-                            fontWeight: FontWeight.w600)),
-                  ],
-                ),
+                if (!_sidebarCollapsed || !isWide) ...[
+                  const SizedBox(width: 10),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('FindFood', style: TextStyle(color: textPri,
+                          fontWeight: FontWeight.w800, fontSize: 14,
+                          letterSpacing: 0.3)),
+                      const Text('Admin HQ', style: TextStyle(
+                          color: AppTheme.accent, fontSize: 11,
+                          fontWeight: FontWeight.w600)),
+                    ],
+                  ),
+                ],
+                if (_sidebarCollapsed && isWide) const Spacer(),
+                if (isWide)
+                  IconButton(
+                    tooltip: _sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar',
+                    icon: Icon(_sidebarCollapsed
+                        ? Icons.keyboard_double_arrow_right_rounded
+                        : Icons.keyboard_double_arrow_left_rounded,
+                        color: textHint, size: 18),
+                    onPressed: () => setState(
+                        () => _sidebarCollapsed = !_sidebarCollapsed),
+                  ),
               ],
             ),
           ),
@@ -116,15 +179,67 @@ class _AdminDashboardState extends State<AdminDashboard> {
           Divider(color: border, height: 1),
           const SizedBox(height: 10),
 
+          // Local navigation search. It only filters dashboard destinations.
+          if (!_sidebarCollapsed || !isWide) Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            child: TextField(
+              onChanged: (value) => setState(() => _navQuery = value),
+              style: TextStyle(color: textPri, fontSize: 12),
+              decoration: InputDecoration(
+                hintText: 'Search workspace',
+                hintStyle: TextStyle(color: textHint, fontSize: 12),
+                prefixIcon: Icon(Icons.search_rounded,
+                    color: textHint, size: 17),
+                suffixIcon: _navQuery.isEmpty
+                    ? null
+                    : IconButton(
+                        tooltip: 'Clear search',
+                        icon: Icon(Icons.close_rounded,
+                            color: textHint, size: 16),
+                        onPressed: () => setState(() => _navQuery = ''),
+                      ),
+                filled: true,
+                fillColor: AppColors.card(context).withValues(alpha: 0.7),
+                contentPadding: const EdgeInsets.symmetric(vertical: 10),
+                border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: border)),
+                enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: border)),
+                focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(
+                        color: AppTheme.accent, width: 1.2)),
+              ),
+            ),
+          ),
+          const SizedBox(height: 10),
+
           // ── Nav items ────────────────────────────────────
           Expanded(
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 10),
-              child: Column(
-                children: List.generate(_navItems.length, (i) {
-                  final item   = _navItems[i];
+              child: ListView(
+                children: _navItems.asMap().entries.where((entry) {
+                  final label = entry.value['label'] as String;
+                  return label.toLowerCase().contains(_navQuery.toLowerCase());
+                }).map((entry) {
+                  final i = entry.key;
+                  final item = entry.value;
                   final active = _selectedIndex == i;
-                  return GestureDetector(
+                  return Focus(
+                    autofocus: i == 0,
+                    onKeyEvent: (_, event) {
+                      if (event is KeyDownEvent &&
+                          event.logicalKey == LogicalKeyboardKey.enter) {
+                        setState(() => _selectedIndex = i);
+                        if (!isWide) Navigator.pop(context);
+                        return KeyEventResult.handled;
+                      }
+                      return KeyEventResult.ignored;
+                    },
+                    child: GestureDetector(
                     onTap: () {
                       setState(() => _selectedIndex = i);
                       if (!isWide) Navigator.pop(context);
@@ -151,8 +266,9 @@ class _AdminDashboardState extends State<AdminDashboard> {
                               color: active
                                   ? AppTheme.accent
                                   : textHint),
-                          const SizedBox(width: 12),
-                          Text(item['label'] as String,
+                          if (!_sidebarCollapsed || !isWide) ...[
+                            const SizedBox(width: 12),
+                            Text(item['label'] as String,
                               style: TextStyle(
                                 color: active
                                     ? AppTheme.accent
@@ -162,6 +278,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
                                     : FontWeight.w400,
                                 fontSize: 14,
                               )),
+                          ],
                           if (i == 1) ...[
                             const Spacer(),
                             Container(
@@ -181,8 +298,9 @@ class _AdminDashboardState extends State<AdminDashboard> {
                         ],
                       ),
                     ),
+                  ),
                   );
-                }),
+                }).toList(),
               ),
             ),
           ),
@@ -194,6 +312,55 @@ class _AdminDashboardState extends State<AdminDashboard> {
             padding: const EdgeInsets.all(12),
             child: Column(
               children: [
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: AppColors.card(context).withValues(alpha: 0.72),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: border),
+                  ),
+                  child: Row(
+                    children: [
+                      CircleAvatar(
+                        radius: 17,
+                        backgroundColor: AppTheme.accent.withValues(alpha: 0.16),
+                        child: Text(
+                          (auth.name?.trim().isNotEmpty == true
+                                  ? auth.name!.trim()
+                                  : 'A')[0]
+                              .toUpperCase(),
+                          style: const TextStyle(
+                              color: AppTheme.accent,
+                              fontWeight: FontWeight.w800),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              auth.name?.trim().isNotEmpty == true
+                                  ? auth.name!.trim()
+                                  : 'Administrator',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                  color: textPri,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w700),
+                            ),
+                            Text('Admin account',
+                                style: TextStyle(
+                                    color: textHint, fontSize: 11)),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 10),
                 // Theme toggle
                 GestureDetector(
                   onTap: theme.toggle,
@@ -274,7 +441,22 @@ class _AdminDashboardState extends State<AdminDashboard> {
         body: Row(
           children: [
             sidebar,
-            Expanded(child: SafeArea(child: _buildPage())),
+            Expanded(
+              child: SafeArea(
+                child: Column(
+                  children: [
+                    GreetingHeader(
+                      name: auth.name?.trim().isNotEmpty == true
+                          ? auth.name!
+                          : 'Admin',
+                      role: 'admin',
+                      padding: const EdgeInsets.fromLTRB(24, 18, 24, 12),
+                    ),
+                    Expanded(child: _buildPage()),
+                  ],
+                ),
+              ),
+            ),
           ],
         ),
       );
@@ -286,6 +468,11 @@ class _AdminDashboardState extends State<AdminDashboard> {
         backgroundColor: surf,
         title: Text(_navItems[_selectedIndex]['label'] as String),
         actions: [
+          IconButton(
+            tooltip: 'Notifications',
+            icon: const Icon(Icons.notifications_none_rounded),
+            onPressed: _showNotifications,
+          ),
           IconButton(
             icon: Icon(theme.isDark
                 ? Icons.light_mode_rounded
@@ -299,7 +486,18 @@ class _AdminDashboardState extends State<AdminDashboard> {
         backgroundColor: surf,
         child: sidebar,
       ),
-      body: SafeArea(child: _buildPage()),
+      body: SafeArea(
+        child: Column(
+          children: [
+            GreetingHeader(
+              name: auth.name?.trim().isNotEmpty == true ? auth.name! : 'Admin',
+              role: 'admin',
+              padding: const EdgeInsets.fromLTRB(20, 14, 20, 12),
+            ),
+            Expanded(child: _buildPage()),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -317,6 +515,7 @@ class _OverviewPageState extends State<_OverviewPage> {
   Map<String, dynamic>? _stats;
   bool _loading = true;
   String _error = '';
+  final Set<String> _expandedStats = {};
 
   @override
   void initState() {
@@ -370,9 +569,17 @@ class _OverviewPageState extends State<_OverviewPage> {
                         style: TextStyle(color: textSec, fontSize: 13)),
                   ],
                 ),
-                GestureDetector(
-                  onTap: _load,
-                  child: Container(
+                Row(
+                  children: [
+                    IconButton(
+                      tooltip: 'Export visible stats',
+                      icon: Icon(Icons.download_rounded,
+                          color: textSec, size: 19),
+                      onPressed: () => _showExportDialog(_stats ?? {}),
+                    ),
+                    GestureDetector(
+                      onTap: _load,
+                      child: Container(
                     padding: const EdgeInsets.symmetric(
                         horizontal: 14, vertical: 8),
                     decoration: BoxDecoration(
@@ -397,7 +604,9 @@ class _OverviewPageState extends State<_OverviewPage> {
                                 fontWeight: FontWeight.w600)),
                       ],
                     ),
-                  ),
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -440,6 +649,8 @@ class _OverviewPageState extends State<_OverviewPage> {
                         '${s['total_orders'] ?? 0}',
                         'All time · tap to view', Icons.receipt_long_rounded,
                         AppTheme.accent, cardW,
+                        expanded: _expandedStats.contains('Total Orders'),
+                        onToggle: () => setState(() => _toggleStat('Total Orders')),
                         onTap: () => Navigator.push(context,
                             MaterialPageRoute(
                                 builder: (_) => const _AdminOrdersScreen()))),
@@ -447,45 +658,215 @@ class _OverviewPageState extends State<_OverviewPage> {
                         '${s['active_riders'] ?? 0}',
                         'Tap to view all', Icons.electric_bike_rounded,
                         AppTheme.success, cardW,
+                        expanded: _expandedStats.contains('Active Riders'),
+                        onToggle: () => setState(() => _toggleStat('Active Riders')),
                         onTap: () => widget.onNavigate(2)), // Riders tab
                     _statCard(context, 'Restaurants',
                         '${s['total_restaurants'] ?? 0}',
                         '${s['pending_approvals'] ?? 0} pending · tap to review',
                         Icons.storefront_rounded,
                         AppTheme.warning, cardW,
+                        expanded: _expandedStats.contains('Restaurants'),
+                        onToggle: () => setState(() => _toggleStat('Restaurants')),
                         onTap: () => widget.onNavigate(1)), // Approvals tab
                     _statCard(context, 'Revenue',
                         'GH₵ ${((s['revenue_today'] ?? 0) / 100).toStringAsFixed(2)}',
                         'Delivered orders · tap to view', Icons.payments_rounded,
                         const Color(0xFF8B5CF6), cardW,
+                        expanded: _expandedStats.contains('Revenue'),
+                        onToggle: () => setState(() => _toggleStat('Revenue')),
                         onTap: () => Navigator.push(context,
                             MaterialPageRoute(
                                 builder: (_) => const _AdminRevenueScreen()))),
                   ],
                 );
               }),
+            const SizedBox(height: 30),
+            Text('Quick actions',
+                style: TextStyle(
+                    color: textPri,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700)),
+            const SizedBox(height: 12),
+            LayoutBuilder(
+              builder: (ctx, constraints) {
+                final isWide = constraints.maxWidth > 620;
+                final width = isWide
+                    ? (constraints.maxWidth - 30) / 4
+                    : (constraints.maxWidth - 14) / 2;
+                return Wrap(
+                  spacing: 10,
+                  runSpacing: 10,
+                  children: [
+                    _quickAction(ctx, 'Review approvals', Icons.fact_check_outlined,
+                        AppTheme.warning, width, () => widget.onNavigate(1)),
+                    _quickAction(ctx, 'Manage riders', Icons.electric_bike_outlined,
+                        AppTheme.success, width, () => widget.onNavigate(2)),
+                    _quickAction(ctx, 'View users', Icons.people_outline_rounded,
+                        const Color(0xFF60A5FA), width, () => widget.onNavigate(3)),
+                    _quickAction(ctx, 'Open settings', Icons.tune_rounded,
+                        AppTheme.accent, width, () => widget.onNavigate(4)),
+                  ],
+                );
+              },
+            ),
+            const SizedBox(height: 30),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text('Recent activity', style: TextStyle(
+                    color: textPri, fontSize: 18, fontWeight: FontWeight.w700)),
+                Text('Local preview', style: TextStyle(
+                    color: AppColors.textHint(context), fontSize: 11)),
+              ],
+            ),
+            const SizedBox(height: 12),
+            _activityPanel(context),
+            const SizedBox(height: 18),
+            _themePreview(context),
           ],
         ),
       ),
     );
   }
 
+  void _toggleStat(String label) {
+    if (!_expandedStats.add(label)) _expandedStats.remove(label);
+  }
+
+  void _showExportDialog(Map<String, dynamic> stats) {
+    final csv = [
+      'Metric,Value',
+      'Total Orders,${stats['total_orders'] ?? 0}',
+      'Active Riders,${stats['active_riders'] ?? 0}',
+      'Restaurants,${stats['total_restaurants'] ?? 0}',
+      'Revenue Today,GH₵ ${((stats['revenue_today'] ?? 0) / 100).toStringAsFixed(2)}',
+    ].join('\n');
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Export statistics'),
+        content: SelectableText(csv),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Clipboard.setData(ClipboardData(text: csv));
+              Navigator.pop(context);
+              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                  content: Text('CSV copied to clipboard')));
+            },
+            child: const Text('Copy CSV'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _activityPanel(BuildContext context) {
+    const activity = [
+      ('Platform overview refreshed', 'Just now', Icons.refresh_rounded),
+      ('Approval queue checked', '12 min ago', Icons.fact_check_outlined),
+      ('Revenue report viewed', 'Today', Icons.payments_outlined),
+    ];
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      decoration: BoxDecoration(
+        color: AppColors.card(context).withValues(alpha: 0.78),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.border(context)),
+      ),
+      child: Column(
+        children: activity.map((item) => ListTile(
+          dense: true,
+          leading: Icon(item.$3, color: AppTheme.accent, size: 19),
+          title: Text(item.$1, style: TextStyle(
+              color: AppColors.textPrimary(context), fontSize: 12,
+              fontWeight: FontWeight.w600)),
+          trailing: Text(item.$2, style: TextStyle(
+              color: AppColors.textHint(context), fontSize: 11)),
+        )).toList(),
+      ),
+    );
+  }
+
+  Widget _themePreview(BuildContext context) {
+    final theme = Provider.of<ThemeProvider>(context);
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppColors.surface(context).withValues(alpha: 0.72),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.border(context)),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.palette_outlined,
+              color: AppColors.textSecondary(context), size: 19),
+          const SizedBox(width: 10),
+          Expanded(child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Appearance', style: TextStyle(
+                  color: AppColors.textPrimary(context),
+                  fontSize: 12, fontWeight: FontWeight.w700)),
+              Text(theme.isDark ? 'Dark workspace' : 'Light workspace',
+                  style: TextStyle(color: AppColors.textHint(context), fontSize: 11)),
+            ],
+          )),
+          GestureDetector(
+            onTap: theme.toggle,
+            child: Container(
+              width: 54,
+              height: 28,
+              padding: const EdgeInsets.all(3),
+              decoration: BoxDecoration(
+                color: theme.isDark ? AppTheme.accent : AppColors.border(context),
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Align(
+                alignment: theme.isDark ? Alignment.centerRight : Alignment.centerLeft,
+                child: Container(
+                  width: 22,
+                  height: 22,
+                  decoration: BoxDecoration(
+                    color: theme.isDark ? Colors.black : AppColors.surface(context),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(theme.isDark ? Icons.nightlight_round : Icons.wb_sunny_rounded,
+                      size: 14,
+                      color: theme.isDark ? AppTheme.accent : AppTheme.warning),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _statCard(BuildContext ctx, String label, String value,
       String sub, IconData icon, Color color, double width,
-      {VoidCallback? onTap}) {
+      {VoidCallback? onTap, VoidCallback? onToggle, bool expanded = false}) {
     return GestureDetector(
-      onTap: onTap,
+      onTap: onToggle,
       child: Container(
       width: width,
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: AppColors.card(ctx),
+        color: AppColors.card(ctx).withValues(alpha: 0.84),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
           color: onTap != null
               ? color.withValues(alpha: 0.3)
               : AppColors.border(ctx),
         ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.06),
+            blurRadius: 18,
+            offset: const Offset(0, 6),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -529,8 +910,74 @@ class _OverviewPageState extends State<_OverviewPage> {
                   color: AppTheme.success,
                   fontSize: 11,
                   fontWeight: FontWeight.w500)),
+          if (expanded) ...[
+            const SizedBox(height: 12),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Row(
+                children: [
+                  Expanded(child: Text('View detailed breakdown',
+                      style: TextStyle(color: color, fontSize: 11,
+                          fontWeight: FontWeight.w600))),
+                  IconButton(
+                    tooltip: 'Open details',
+                    visualDensity: VisualDensity.compact,
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                    icon: Icon(Icons.arrow_forward_rounded, color: color, size: 16),
+                    onPressed: onTap,
+                  ),
+                ],
+              ),
+            ),
+          ],
         ],
       ),
+      ),
+    );
+  }
+
+  Widget _quickAction(BuildContext ctx, String label, IconData icon,
+      Color color, double width, VoidCallback onTap) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: width,
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 13),
+        decoration: BoxDecoration(
+          color: AppColors.surface(ctx).withValues(alpha: 0.72),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: AppColors.border(ctx)),
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(7),
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(9),
+              ),
+              child: Icon(icon, color: color, size: 17),
+            ),
+            const SizedBox(width: 9),
+            Expanded(
+              child: Text(label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                      color: AppColors.textPrimary(ctx),
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600)),
+            ),
+            Icon(Icons.arrow_forward_ios_rounded,
+                color: AppColors.textHint(ctx), size: 12),
+          ],
+        ),
       ),
     );
   }
@@ -1314,18 +1761,16 @@ class _AdminSettingsPageState extends State<_AdminSettingsPage> {
               children: [
                 Center(
                   child: Container(
-                    width: 40, height: 4,
+                    width: 40,
+                    height: 4,
                     decoration: BoxDecoration(
                       color: AppColors.border(ctx),
-                      borderRadius: BorderRadius.circular(2),
+                      borderRadius: BorderRadius.circular(4),
                     ),
                   ),
                 ),
                 const SizedBox(height: 16),
-                Text('Edit profile',
-                    style: TextStyle(
-                        color: AppColors.textPrimary(ctx),
-                        fontSize: 18, fontWeight: FontWeight.w800)),
+                const SizedBox(height: 20),
                 const SizedBox(height: 20),
                 if (loading)
                   const Padding(

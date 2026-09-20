@@ -336,3 +336,9 @@ class Promotion {
         isActive: json['is_active'] ?? true,
       );
 }
+class PasswordResetException implements Exception {
+  final String message;
+  PasswordResetException(this.message);
+  @override
+  String toString() => message;
+}
