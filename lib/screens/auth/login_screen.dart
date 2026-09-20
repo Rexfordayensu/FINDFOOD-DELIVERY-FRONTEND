@@ -80,9 +80,7 @@ class _LoginScreenState extends State<LoginScreen>
       if (!mounted) return;
 
       if (otpRequiredFromResponse(data)) {
-        context.go(
-          '/email-verification?email=${Uri.encodeComponent(_loginEmail.text.trim())}&role=${Uri.encodeComponent('')}&mode=${Uri.encodeComponent('login')}',
-        );
+        context.go(_emailVerificationUri(_loginEmail.text.trim()));
         return;
       }
 
@@ -97,9 +95,7 @@ class _LoginScreenState extends State<LoginScreen>
       context.go(_routeAfterLogin(data['role']));
     } on EmailNotVerifiedException {
       if (!mounted) return;
-      context.go(
-        '/email-verification?email=${Uri.encodeComponent(_loginEmail.text.trim())}&role=${Uri.encodeComponent('')}&mode=${Uri.encodeComponent('login')}',
-      );
+      context.go(_emailVerificationUri(_loginEmail.text.trim()));
     } catch (e) {
       if (!mounted) return;
       _showError(e.toString().replaceAll('Exception: ', ''));
@@ -120,9 +116,7 @@ class _LoginScreenState extends State<LoginScreen>
       await ApiService.requestLoginOtp(email: email);
       if (!mounted) return;
 
-      context.go(
-        '/email-verification?email=${Uri.encodeComponent(email)}&role=${Uri.encodeComponent('')}&mode=${Uri.encodeComponent('login')}',
-      );
+      context.go(_emailVerificationUri(email));
     } catch (e) {
       if (!mounted) return;
       _showError(e.toString().replaceAll('Exception: ', ''));
@@ -218,6 +212,17 @@ class _LoginScreenState extends State<LoginScreen>
       return requested;
     }
     return _routeForRole(role);
+  }
+
+  String _emailVerificationUri(String email) {
+    return Uri(
+      path: '/email-verification',
+      queryParameters: {
+        'email': email,
+        'role': '',
+        'mode': 'login',
+      },
+    ).toString();
   }
 
   // ── FORGOT PASSWORD ───────────────────────────────────────────────────────
@@ -451,6 +456,15 @@ class _LoginScreenState extends State<LoginScreen>
             hint: 'Email address',
             prefixIcon: Icons.email_outlined,
             keyboardType: TextInputType.emailAddress,
+            textInputAction:
+                _useOtpLogin ? TextInputAction.done : TextInputAction.next,
+            onFieldSubmitted: (_) {
+              if (_useOtpLogin) {
+                _requestOtp();
+              } else {
+                FocusScope.of(context).nextFocus();
+              }
+            },
             validator: (v) {
               if (v == null || v.trim().isEmpty) return 'Email is required';
               final reg = RegExp(r'^[\w.+-]+@[\w-]+\.[a-zA-Z]{2,}$');
@@ -465,6 +479,8 @@ class _LoginScreenState extends State<LoginScreen>
               hint: 'Password',
               prefixIcon: Icons.lock_outline_rounded,
               obscure: _obscureLogin,
+              textInputAction: TextInputAction.done,
+              onFieldSubmitted: (_) => _login(),
               suffixIcon: IconButton(
                 icon: Icon(
                   _obscureLogin ? Icons.visibility_off : Icons.visibility,
@@ -474,7 +490,7 @@ class _LoginScreenState extends State<LoginScreen>
                 onPressed: () => setState(() => _obscureLogin = !_obscureLogin),
               ),
               validator: (v) =>
-                  (v == null || v.length < 8) ? 'Min 8 characters' : null,
+                  (v == null || v.isEmpty) ? 'Password is required' : null,
             ),
             const SizedBox(height: 8),
             Align(
@@ -756,7 +772,7 @@ class _SocialBtnState extends State<_SocialBtn> {
     );
   }
 }
-  bool otpRequiredFromResponse(Map<String, dynamic> data) {
-    return data['otp_required'] == true || data['two_factor'] == true;
-  }
 
+bool otpRequiredFromResponse(Map<String, dynamic> data) {
+  return data['otp_required'] == true || data['two_factor'] == true;
+}

@@ -28,11 +28,13 @@ class _CartScreenState extends State<CartScreen> {
     PaymentProviderOption(value: 'mtn_momo', label: 'MTN Mobile Money'),
   ];
 
-  void _startPaymentVerification({required String reference, required Order order}) {
+  void _startPaymentVerification(
+      {required String reference, required Order order}) {
     if (_paymentVerificationTimer != null) return;
 
     _hasNavigatedToTracking = false;
-    _paymentVerificationTimer = Timer.periodic(const Duration(seconds: 5), (_) async {
+    _paymentVerificationTimer =
+        Timer.periodic(const Duration(seconds: 5), (_) async {
       if (!mounted || _hasNavigatedToTracking) return;
 
       final auth = Provider.of<AuthProvider>(context, listen: false);
@@ -63,7 +65,9 @@ class _CartScreenState extends State<CartScreen> {
       _paymentVerificationTimer?.cancel();
       _paymentVerificationTimer = null;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Payment verification timed out. Please check your order status.')),
+        const SnackBar(
+            content: Text(
+                'Payment verification timed out. Please check your order status.')),
       );
     });
   }
@@ -73,7 +77,10 @@ class _CartScreenState extends State<CartScreen> {
     final cart = Provider.of<CartProvider>(context, listen: false);
 
     if (!auth.isLoggedIn) {
-      context.go('/login?returnTo=%2Fcart');
+      context.go(Uri(
+        path: '/login',
+        queryParameters: {'returnTo': Uri(path: '/cart').toString()},
+      ).toString());
       return;
     }
 
@@ -111,7 +118,8 @@ class _CartScreenState extends State<CartScreen> {
           throw Exception('Invalid payment initialization response.');
         }
 
-        await launchUrlString(authorizationUrl, mode: LaunchMode.externalApplication);
+        await launchUrlString(authorizationUrl,
+            mode: LaunchMode.externalApplication);
 
         if (!mounted) return;
         _startPaymentVerification(reference: reference, order: order);
@@ -120,13 +128,15 @@ class _CartScreenState extends State<CartScreen> {
         ));
       } else {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('MTN Mobile Money flow is being prepared. Please try again later.'),
+          content: Text(
+              'MTN Mobile Money flow is being prepared. Please try again later.'),
         ));
       }
     } catch (e) {
       if (!mounted) return;
       final errorMsg = e.toString().replaceAll('Exception: ', '');
-      debugPrint('Payment initialization error: $errorMsg | Provider: $_selectedProvider');
+      debugPrint(
+          'Payment initialization error: $errorMsg | Provider: $_selectedProvider');
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
         backgroundColor: AppTheme.danger,
         content: Text(errorMsg, style: const TextStyle(color: Colors.white)),
@@ -167,46 +177,50 @@ class _CartScreenState extends State<CartScreen> {
           const Text('Your order', style: AppText.heading),
           const SizedBox(height: 14),
           ...cart.items.map((item) => Container(
-            margin: const EdgeInsets.only(bottom: 12),
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              color: AppTheme.card,
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: AppTheme.darkBorder),
-            ),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(item.menuItem.name, style: AppText.title),
-                      const SizedBox(height: 4),
-                      Text(item.displaySubtotal,
-                          style: AppText.label.copyWith(color: AppTheme.accent)),
-                    ],
-                  ),
+                margin: const EdgeInsets.only(bottom: 12),
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: AppTheme.card,
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: AppTheme.darkBorder),
                 ),
-                // Qty controls
-                Row(
+                child: Row(
                   children: [
-                    _qtyBtn(Icons.remove, () =>
-                        Provider.of<CartProvider>(context, listen: false)
-                            .decreaseItem(item.menuItem.id)),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 14),
-                      child: Text('${item.quantity}',
-                          style: AppText.title),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(item.menuItem.name, style: AppText.title),
+                          const SizedBox(height: 4),
+                          Text(item.displaySubtotal,
+                              style: AppText.label
+                                  .copyWith(color: AppTheme.accent)),
+                        ],
+                      ),
                     ),
-                    _qtyBtn(Icons.add, () =>
-                        Provider.of<CartProvider>(context, listen: false)
-                            .addItem(item.menuItem,
-                                cart.restaurantId!, cart.restaurantName!)),
+                    // Qty controls
+                    Row(
+                      children: [
+                        _qtyBtn(
+                            Icons.remove,
+                            () => Provider.of<CartProvider>(context,
+                                    listen: false)
+                                .decreaseItem(item.menuItem.id)),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 14),
+                          child: Text('${item.quantity}', style: AppText.title),
+                        ),
+                        _qtyBtn(
+                            Icons.add,
+                            () => Provider.of<CartProvider>(context,
+                                    listen: false)
+                                .addItem(item.menuItem, cart.restaurantId!,
+                                    cart.restaurantName!)),
+                      ],
+                    ),
                   ],
                 ),
-              ],
-            ),
-          )),
+              )),
 
           // ── Summary ────────────────────────────────────────────
           const SizedBox(height: 8),
@@ -219,60 +233,68 @@ class _CartScreenState extends State<CartScreen> {
             ),
             child: Column(
               children: [
-                  Padding(
-          padding: const EdgeInsets.only(bottom: 12.0),
-          child: Container(
-            width: double.infinity,
-            decoration: BoxDecoration(
-              color: AppTheme.darkBorder, // Blends perfectly with your theme palette!
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Row(
-              children: [
-                Expanded(
-                  child: GestureDetector(
-                    onTap: () => setState(() => _isDelivery = true),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      decoration: BoxDecoration(
-                        color: _isDelivery ? AppTheme.accent : Colors.transparent, // Uses your theme color highlight
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Text(
-                        '🛵 Delivery',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          color: _isDelivery ? Colors.white : Colors.grey,
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 12.0),
+                  child: Container(
+                    width: double.infinity,
+                    decoration: BoxDecoration(
+                      color: AppTheme
+                          .darkBorder, // Blends perfectly with your theme palette!
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: GestureDetector(
+                            onTap: () => setState(() => _isDelivery = true),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              decoration: BoxDecoration(
+                                color: _isDelivery
+                                    ? AppTheme.accent
+                                    : Colors
+                                        .transparent, // Uses your theme color highlight
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Text(
+                                '🛵 Delivery',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  color:
+                                      _isDelivery ? Colors.white : Colors.grey,
+                                ),
+                              ),
+                            ),
+                          ),
                         ),
-                      ),
+                        Expanded(
+                          child: GestureDetector(
+                            onTap: () => setState(() => _isDelivery = false),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              decoration: BoxDecoration(
+                                color: !_isDelivery
+                                    ? AppTheme.accent
+                                    : Colors.transparent,
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Text(
+                                '🛍️ Pickup',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  color:
+                                      !_isDelivery ? Colors.white : Colors.grey,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ),
-                Expanded(
-                  child: GestureDetector(
-                    onTap: () => setState(() => _isDelivery = false),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      decoration: BoxDecoration(
-                        color: !_isDelivery ? AppTheme.accent : Colors.transparent,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Text(
-                        '🛍️ Pickup',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          color: !_isDelivery ? Colors.white : Colors.grey,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
                 _summaryRow('Subtotal', cart.displayTotal),
                 const SizedBox(height: 8),
                 _summaryRow('Delivery fee', 'Free'),
@@ -300,10 +322,12 @@ class _CartScreenState extends State<CartScreen> {
               final active = _selectedProvider == provider.value;
               return Expanded(
                 child: GestureDetector(
-                  onTap: () => setState(() => _selectedProvider = provider.value),
+                  onTap: () =>
+                      setState(() => _selectedProvider = provider.value),
                   child: AnimatedContainer(
                     duration: const Duration(milliseconds: 200),
-                    margin: EdgeInsets.only(right: provider == _providers.last ? 0 : 8),
+                    margin: EdgeInsets.only(
+                        right: provider == _providers.last ? 0 : 8),
                     padding: const EdgeInsets.symmetric(vertical: 12),
                     decoration: BoxDecoration(
                       color: active ? AppTheme.accentDim : AppTheme.card,
@@ -316,8 +340,10 @@ class _CartScreenState extends State<CartScreen> {
                     child: Center(
                       child: Text(provider.label,
                           style: TextStyle(
-                            color: active ? AppTheme.accent : AppTheme.textSecond,
-                            fontWeight: active ? FontWeight.w700 : FontWeight.w400,
+                            color:
+                                active ? AppTheme.accent : AppTheme.textSecond,
+                            fontWeight:
+                                active ? FontWeight.w700 : FontWeight.w400,
                             fontSize: 12,
                           )),
                     ),
@@ -353,7 +379,8 @@ class _CartScreenState extends State<CartScreen> {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        width: 32, height: 32,
+        width: 32,
+        height: 32,
         decoration: BoxDecoration(
           color: AppTheme.surface,
           borderRadius: BorderRadius.circular(8),

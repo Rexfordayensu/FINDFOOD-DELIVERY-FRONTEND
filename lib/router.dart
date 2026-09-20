@@ -28,16 +28,23 @@ GoRouter createAppRouter(
 
   return GoRouter(
     navigatorKey: navigatorKey,
-    initialLocation: Uri.base.path.isEmpty ? '/' : Uri.base.path,
+    initialLocation: Uri(
+      path: Uri.base.path.isEmpty ? '/' : Uri.base.path,
+      queryParameters:
+          Uri.base.queryParameters.isEmpty ? null : Uri.base.queryParameters,
+    ).toString(),
     refreshListenable: auth,
     routes: [
       GoRoute(path: '/', builder: (_, __) => const FoodFeedScreen()),
       GoRoute(path: '/home', redirect: (_, __) => '/'),
       GoRoute(path: '/admin-dashboard', redirect: (_, __) => '/admin'),
-      GoRoute(path: '/restaurant-dashboard', redirect: (_, __) => '/restaurant/orders'),
+      GoRoute(
+          path: '/restaurant-dashboard',
+          redirect: (_, __) => '/restaurant/orders'),
       GoRoute(path: '/rider-dashboard', redirect: (_, __) => '/rider'),
       GoRoute(path: '/loading', builder: (_, __) => const _LoadingScreen()),
-      GoRoute(path: '/auth/callback', builder: (_, __) => const _LoadingScreen()),
+      GoRoute(
+          path: '/auth/callback', builder: (_, __) => const _LoadingScreen()),
       GoRoute(
         path: '/email-verification',
         builder: (_, state) {
@@ -65,7 +72,9 @@ GoRouter createAppRouter(
           returnRoute: state.uri.queryParameters['returnTo'] ?? '/home',
         ),
       ),
-      GoRoute(path: '/forgot-password', builder: (_, __) => const ForgotPasswordScreen()),
+      GoRoute(
+          path: '/forgot-password',
+          builder: (_, __) => const ForgotPasswordScreen()),
       GoRoute(
         path: '/reset-password',
         builder: (_, state) => ResetPasswordScreen(
@@ -181,7 +190,9 @@ GoRouter createAppRouter(
         if (location != '/loading' && location != '/auth/callback') {
           pendingLocation ??= state.uri.toString();
         }
-        return location == '/loading' || location == '/auth/callback' ? null : '/loading';
+        return location == '/loading' || location == '/auth/callback'
+            ? null
+            : '/loading';
       }
 
       if (location == '/loading') {
@@ -199,6 +210,7 @@ GoRouter createAppRouter(
       final isPublic = location == '/' ||
           location == '/home' ||
           location == '/login' ||
+          location == '/email-verification' ||
           location == '/forgot-password' ||
           location == '/reset-password';
       if (location == '/login' && auth.isLoggedIn) {
@@ -210,16 +222,29 @@ GoRouter createAppRouter(
       }
       if (isPublic) return null;
       if (!auth.isLoggedIn) {
-        return '/login?returnTo=${Uri.encodeComponent(state.uri.toString())}';
+        final loginUri = Uri(
+          path: '/login',
+          queryParameters: {
+            'returnTo': Uri(
+              path: state.uri.path,
+              queryParameters: state.uri.queryParameters,
+            ).toString(),
+          },
+        );
+        return loginUri.toString();
       }
 
       final restaurantRoute = location.startsWith('/restaurant/');
       final roleRoute = location == '/rider' || location == '/admin';
-      final conversationRoute = location.startsWith('/chat/') || location.startsWith('/order-chat/');
+      final conversationRoute =
+          location.startsWith('/chat/') || location.startsWith('/order-chat/');
       if (restaurantRoute && !auth.isRestaurant) return _homeForRole(auth);
       if (location == '/rider' && !auth.isRider) return _homeForRole(auth);
       if (location == '/admin' && !auth.isAdmin) return _homeForRole(auth);
-      if (!restaurantRoute && !roleRoute && !conversationRoute && !auth.isCustomer) {
+      if (!restaurantRoute &&
+          !roleRoute &&
+          !conversationRoute &&
+          !auth.isCustomer) {
         return _homeForRole(auth);
       }
       return null;
@@ -230,7 +255,9 @@ GoRouter createAppRouter(
 String _homeForRole(AuthProvider auth) {
   switch (auth.role) {
     case 'restaurant':
-      return auth.isRestaurantApproved ? '/restaurant/orders' : '/restaurant/pending';
+      return auth.isRestaurantApproved
+          ? '/restaurant/orders'
+          : '/restaurant/pending';
     case 'rider':
       return '/rider';
     case 'admin':

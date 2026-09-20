@@ -69,13 +69,16 @@ class AppTextField extends StatelessWidget {
   final Widget? suffixIcon;
   final bool obscure;
   final TextInputType? keyboardType;
+  final TextInputAction? textInputAction;
+  final ValueChanged<String>? onFieldSubmitted;
   final String? Function(String?)? validator;
   final int? maxLines;
 
   const AppTextField({
     super.key, required this.controller, required this.hint,
     this.prefixIcon, this.suffixIcon, this.obscure = false,
-    this.keyboardType, this.validator, this.maxLines = 1,
+    this.keyboardType, this.textInputAction, this.onFieldSubmitted,
+    this.validator, this.maxLines = 1,
   });
 
   @override
@@ -84,6 +87,8 @@ class AppTextField extends StatelessWidget {
       controller: controller,
       obscureText: obscure,
       keyboardType: keyboardType,
+      textInputAction: textInputAction,
+      onFieldSubmitted: onFieldSubmitted,
       maxLines: maxLines,
       style: TextStyle(color: AppColors.textPrimary(context), fontSize: 15),
       decoration: InputDecoration(
