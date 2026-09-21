@@ -5,6 +5,8 @@ import 'package:http/http.dart' as http;
 import '../models/models.dart';
 import 'package:flutter/material.dart';
 import 'package:http_parser/http_parser.dart';
+import 'package:flutter/foundation.dart';
+
 
 // Custom exception for email not verified during login
 class EmailNotVerifiedException implements Exception {
@@ -18,7 +20,9 @@ class EmailNotVerifiedException implements Exception {
 class ApiService {
   static const String baseUrl = String.fromEnvironment(
     'API_BASE_URL',
-    defaultValue: 'http://localhost:8000',
+    defaultValue: kReleaseMode 
+        ? 'https://findfooddelivery-backend.onrender.com' //  Used automatically when built for production/Vercel
+        : 'http://localhost:8000',        // Used automatically when running local development debug sessions
   );
 
   // ── Safe decoder ──────────────────────────────────────────────────────────
