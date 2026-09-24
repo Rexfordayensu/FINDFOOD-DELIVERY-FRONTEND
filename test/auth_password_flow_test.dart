@@ -1,5 +1,4 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:findfood_app/services/api_service.dart';
 
 void main() {
   group('OTP response parsing', () {
@@ -11,8 +10,13 @@ void main() {
 
     
 
-    test('requires OTP when an old backend omits the field', () {
-      expect(otpRequiredFromResponse({}), isTrue);
+    test('allows normal password login when OTP is not requested', () {
+      expect(otpRequiredFromResponse({
+        'access_token': 'JWT_TOKEN_HERE',
+        'token_type': 'bearer',
+        'user_id': 12,
+        'role': 'customer',
+      }), isFalse);
     });
   });
 

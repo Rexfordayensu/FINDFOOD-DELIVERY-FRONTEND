@@ -75,7 +75,7 @@ class _LoginScreenState extends State<LoginScreen>
     try {
       final data = await ApiService.login(
         _loginEmail.text.trim(),
-        _loginPassword.text.trim(),
+        _loginPassword.text,
       );
       if (!mounted) return;
 
@@ -84,15 +84,22 @@ class _LoginScreenState extends State<LoginScreen>
         return;
       }
 
+      final token = data['access_token']?.toString();
+      final userId = int.tryParse(data['user_id']?.toString() ?? '');
+      final role = data['role']?.toString().toLowerCase();
+      if (token == null || token.isEmpty || userId == null || role == null || role.isEmpty) {
+        throw Exception('Invalid login response from server');
+      }
+
       await Provider.of<AuthProvider>(context, listen: false).login(
-        token: data['access_token'],
-        userId: data['user_id'],
-        role: data['role'],
+        token: token,
+        userId: userId,
+        role: role,
         email: data['email']?.toString() ?? _loginEmail.text.trim(),
       );
 
       if (!mounted) return;
-      context.go(_routeAfterLogin(data['role']));
+      context.go(_routeAfterLogin(role));
     } on EmailNotVerifiedException {
       if (!mounted) return;
       context.go(_emailVerificationUri(_loginEmail.text.trim()));

@@ -27,6 +27,14 @@ class ApiService {
     if (ct.contains('application/json')) {
       return jsonDecode(response.body) as Map<String, dynamic>;
     }
+    // Some deployments omit or mislabel the JSON content type. Decode the
+    // body when it is valid JSON so successful auth payloads are not lost.
+    try {
+      final decoded = jsonDecode(response.body);
+      if (decoded is Map<String, dynamic>) return decoded;
+    } on FormatException {
+      // Fall through to the plain-text error below.
+    }
     return {
       'detail': response.body.isNotEmpty
           ? response.body

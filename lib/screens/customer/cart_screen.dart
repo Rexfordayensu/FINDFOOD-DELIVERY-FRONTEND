@@ -167,7 +167,13 @@ class _CartScreenState extends State<CartScreen> {
         title: Text(cart.restaurantName ?? 'Cart'),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 18),
-          onPressed: () => Navigator.pop(context),
+          onPressed: () {
+            if (context.canPop()) {
+              context.pop();
+            } else {
+              context.go('/');
+            }
+          },
         ),
       ),
       body: ListView(

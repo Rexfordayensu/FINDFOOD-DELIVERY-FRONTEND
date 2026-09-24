@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import '../../theme.dart';
 import '../../widgets/widgets.dart';
@@ -8,7 +9,6 @@ import '../../services/providers.dart';
 import '../../services/local_customer_store.dart';
 import '../auth/login_screen.dart';
 import 'menu_detail_screen.dart';
-import 'cart_screen.dart';
 import '../../widgets/greeting_header.dart';
 
 // ── Cuisine colors used for image-free restaurant cards ──────────────────────
@@ -85,7 +85,10 @@ String getFullImageUrl(String? url) {
 }
 
 class FoodFeedScreen extends StatefulWidget {
-  const FoodFeedScreen({super.key});
+  const FoodFeedScreen({super.key, this.initialNavIndex = 0});
+
+  final int initialNavIndex;
+
   @override
   State<FoodFeedScreen> createState() => _FoodFeedScreenState();
 }
@@ -113,6 +116,7 @@ class _FoodFeedScreenState extends State<FoodFeedScreen>
   @override
   void initState() {
     super.initState();
+    _navIndex = widget.initialNavIndex;
     _staggerCtrl = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 900),
@@ -357,21 +361,30 @@ class _FoodFeedScreenState extends State<FoodFeedScreen>
         index: _navIndex,
         cartCount: cart.itemCount,
         onTap: (i) {
-          if (i == 2) {
-            Navigator.push(context,
-                MaterialPageRoute(builder: (_) => const CartScreen()));
-            return;
+          switch (i) {
+            case 0:
+              context.go('/');
+              break;
+            case 1:
+              context.go('/search');
+              break;
+            case 2:
+              context.go('/cart');
+              break;
+            case 3:
+              context.go('/orders');
+              break;
+            case 4:
+              if (auth.isLoggedIn) {
+                _showProfileSheet(context, auth, themeP);
+              } else {
+                context.go('/login');
+              }
+              break;
           }
-          if (i == 4) {
-            if (auth.isLoggedIn) {
-              _showProfileSheet(context, auth, themeP);
-            } else {
-              Navigator.push(context,
-                  MaterialPageRoute(builder: (_) => const LoginScreen()));
-            }
-            return;
+          if (i >= 0 && i <= 3) {
+            setState(() => _navIndex = i);
           }
-          setState(() => _navIndex = i);
         },
         textHint: textHint,
         surf: surf,
@@ -566,8 +579,7 @@ class _Header extends StatelessWidget {
                 icon: Icons.shopping_bag_outlined,
                 color: textPri, bg: surf, border: border,
                 badge: cart.itemCount,
-                onTap: () => Navigator.push(context,
-                    MaterialPageRoute(builder: (_) => const CartScreen())),
+                onTap: () => context.go('/cart'),
                 tooltip: 'Cart',
               ),
               const SizedBox(width: 8),

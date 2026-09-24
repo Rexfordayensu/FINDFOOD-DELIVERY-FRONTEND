@@ -35,7 +35,14 @@ GoRouter createAppRouter(
     ).toString(),
     refreshListenable: auth,
     routes: [
-      GoRoute(path: '/', builder: (_, __) => const FoodFeedScreen()),
+      GoRoute(
+        path: '/',
+        builder: (_, __) => const FoodFeedScreen(initialNavIndex: 0),
+      ),
+      GoRoute(
+        path: '/search',
+        builder: (_, __) => const FoodFeedScreen(initialNavIndex: 1),
+      ),
       GoRoute(path: '/home', redirect: (_, __) => '/'),
       GoRoute(path: '/admin-dashboard', redirect: (_, __) => '/admin'),
       GoRoute(
