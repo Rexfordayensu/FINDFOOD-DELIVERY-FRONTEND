@@ -87,7 +87,11 @@ class _LoginScreenState extends State<LoginScreen>
       final token = data['access_token']?.toString();
       final userId = int.tryParse(data['user_id']?.toString() ?? '');
       final role = data['role']?.toString().toLowerCase();
-      if (token == null || token.isEmpty || userId == null || role == null || role.isEmpty) {
+      if (token == null ||
+          token.isEmpty ||
+          userId == null ||
+          role == null ||
+          role.isEmpty) {
         throw Exception('Invalid login response from server');
       }
 
@@ -781,5 +785,5 @@ class _SocialBtnState extends State<_SocialBtn> {
 }
 
 bool otpRequiredFromResponse(Map<String, dynamic> data) {
-  return data['otp_required'] == true || data['two_factor'] == true;
+  return data['otp_required'] == true;
 }

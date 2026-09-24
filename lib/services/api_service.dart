@@ -7,7 +7,6 @@ import 'package:flutter/material.dart';
 import 'package:http_parser/http_parser.dart';
 import 'package:flutter/foundation.dart';
 
-
 // Custom exception for email not verified during login
 class EmailNotVerifiedException implements Exception {
   final String message;
@@ -20,9 +19,9 @@ class EmailNotVerifiedException implements Exception {
 class ApiService {
   static const String baseUrl = String.fromEnvironment(
     'API_BASE_URL',
-    defaultValue: kReleaseMode 
+    defaultValue: kReleaseMode
         ? 'https://findfooddelivery-backend.onrender.com' //  Used automatically when built for production/Vercel
-        : 'http://localhost:8000',        // Used automatically when running local development debug sessions
+        : 'http://localhost:8000', // Used automatically when running local development debug sessions
   );
 
   // ── Safe decoder ──────────────────────────────────────────────────────────
@@ -64,10 +63,10 @@ class ApiService {
       response = await http.post(
         Uri.parse('$baseUrl/login'),
         headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-        body: {
-          'username': email.trim(),
+        body: Uri(queryParameters: {
+          'username': email.trim().toLowerCase(),
           'password': password,
-        },
+        }).query,
       );
     } on http.ClientException {
       throw Exception('Unable to connect to the backend. Please try again.');
@@ -92,6 +91,16 @@ class ApiService {
       throw Exception(data['detail'] ?? 'Please check your login details');
     }
     throw Exception(data['detail'] ?? 'Login failed');
+  }
+
+  static Future<Map<String, dynamic>> getCurrentUser(String token) async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/auth/me'),
+      headers: {'Authorization': 'Bearer $token'},
+    );
+    final data = _decode(response);
+    if (response.statusCode == 200) return data;
+    throw Exception(data['detail'] ?? 'Unable to restore your session');
   }
 
   static Future<Map<String, dynamic>> loginWithGoogle() async {

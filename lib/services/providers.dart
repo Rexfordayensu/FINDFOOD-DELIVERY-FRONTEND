@@ -26,43 +26,48 @@ class AuthProvider extends ChangeNotifier {
   static const String _emailKey = 'auth_email';
 
   String? _token;
-  int?    _userId;
+  int? _userId;
   String? _role;
   String? _name;
   String? _email;
-  bool    _isLoggedIn = false;
-  bool    _isInitialized = false;
-  bool    _isEmailVerified = false;
-  bool    _isRestaurantApproved = false;
+  bool _isLoggedIn = false;
+  bool _isInitialized = false;
+  bool _isEmailVerified = false;
+  bool _isRestaurantApproved = false;
 
-  String? get token      => _token;
-  int?    get userId     => _userId;
-  String? get role       => _role;
-  String? get name       => _name;
-  String? get email      => _email;
-  bool    get isLoggedIn => _isLoggedIn;
-  bool    get isInitialized => _isInitialized;
-  bool    get isEmailVerified => _isEmailVerified;
-  bool    get isRestaurantApproved => _isRestaurantApproved;
+  String? get token => _token;
+  int? get userId => _userId;
+  String? get role => _role;
+  String? get name => _name;
+  String? get email => _email;
+  bool get isLoggedIn => _isLoggedIn;
+  bool get isInitialized => _isInitialized;
+  bool get isEmailVerified => _isEmailVerified;
+  bool get isRestaurantApproved => _isRestaurantApproved;
 
-  bool get isCustomer   => _role == 'customer';
+  bool get isCustomer => _role == 'customer';
   bool get isRestaurant => _role == 'restaurant';
-  bool get isRider      => _role == 'rider';
-  bool get isAdmin      => _role == 'admin';
+  bool get isRider => _role == 'rider';
+  bool get isAdmin => _role == 'admin';
 
-  Future<void> login({required String token, required int userId,
-      required String role, String? name, String? email, 
-      bool? isEmailVerified, bool? isRestaurantApproved}) async {
-    _token = token; 
+  Future<void> login(
+      {required String token,
+      required int userId,
+      required String role,
+      String? name,
+      String? email,
+      bool? isEmailVerified,
+      bool? isRestaurantApproved}) async {
+    _token = token;
     _userId = userId;
-    _role = role; 
+    _role = role;
     _name = name;
     _email = email;
     _isLoggedIn = true;
     _isEmailVerified = isEmailVerified ?? false;
     _isRestaurantApproved = isRestaurantApproved ?? false;
-    await _persistSession();
     notifyListeners();
+    await _persistSession();
   }
 
   void setEmailVerified(bool verified) {
@@ -85,17 +90,26 @@ class AuthProvider extends ChangeNotifier {
       final token = await _secureStorage.read(key: _tokenKey);
       if (token == null || token.isEmpty) return;
 
-      final userIdText = await _secureStorage.read(key: _userIdKey);
-      final role = await _secureStorage.read(key: _roleKey);
-      final name = await _secureStorage.read(key: _nameKey);
-      final email = await _secureStorage.read(key: _emailKey);
+      final user = await ApiService.getCurrentUser(token);
+      final userId = user['user_id'] ?? user['id'];
+      final role = user['role']?.toString().toLowerCase();
 
       _token = token;
-      _userId = int.tryParse(userIdText ?? '0');
+      _userId = userId is int
+          ? userId
+          : int.tryParse(userId?.toString() ?? '0');
       _role = role;
-      _name = name;
-      _email = email;
+      _name = user['name']?.toString();
+      _email = user['email']?.toString();
+      _isEmailVerified = user['is_verified'] == true ||
+          user['email_verified'] == true ||
+          user['is_email_verified'] == true;
+      _isRestaurantApproved = user['is_approved'] == true;
       _isLoggedIn = true;
+      await _persistSession();
+    } catch (error) {
+      debugPrint('Unable to restore auth session: $error');
+      await clearPersistedSession();
     } finally {
       _isInitialized = true;
       notifyListeners();
@@ -105,7 +119,8 @@ class AuthProvider extends ChangeNotifier {
   Future<void> _persistSession() async {
     if (_token == null || _token!.isEmpty) return;
     await _secureStorage.write(key: _tokenKey, value: _token);
-    await _secureStorage.write(key: _userIdKey, value: _userId?.toString() ?? '0');
+    await _secureStorage.write(
+        key: _userIdKey, value: _userId?.toString() ?? '0');
     await _secureStorage.write(key: _roleKey, value: _role ?? 'customer');
     await _secureStorage.write(key: _nameKey, value: _name ?? '');
     await _secureStorage.write(key: _emailKey, value: _email ?? '');
@@ -120,9 +135,9 @@ class AuthProvider extends ChangeNotifier {
   }
 
   Future<void> logout() async {
-    _token = null; 
+    _token = null;
     _userId = null;
-    _role = null; 
+    _role = null;
     _name = null;
     _email = null;
     _isLoggedIn = false;
@@ -136,17 +151,16 @@ class AuthProvider extends ChangeNotifier {
 // ─── CART PROVIDER ────────────────────────────────────────────────────────────
 class CartProvider extends ChangeNotifier {
   final List<CartItem> _items = [];
-  int?    _restaurantId;
+  int? _restaurantId;
   String? _restaurantName;
 
-  List<CartItem> get items           => _items;
-  int?           get restaurantId    => _restaurantId;
-  String?        get restaurantName => _restaurantName;
-  bool           get isEmpty        => _items.isEmpty;
-  int            get itemCount      => _items.fold(0, (s, i) => s + i.quantity);
-  int            get totalAmount    => _items.fold(0, (s, i) => s + i.subtotal);
-  String         get displayTotal   =>
-      'GH₵ ${(totalAmount / 100).toStringAsFixed(2)}';
+  List<CartItem> get items => _items;
+  int? get restaurantId => _restaurantId;
+  String? get restaurantName => _restaurantName;
+  bool get isEmpty => _items.isEmpty;
+  int get itemCount => _items.fold(0, (s, i) => s + i.quantity);
+  int get totalAmount => _items.fold(0, (s, i) => s + i.subtotal);
+  String get displayTotal => 'GH₵ ${(totalAmount / 100).toStringAsFixed(2)}';
 
   List<Map<String, int>> get orderPayload => _items
       .map((i) => {'menu_item_id': i.menuItem.id, 'quantity': i.quantity})
@@ -169,7 +183,11 @@ class CartProvider extends ChangeNotifier {
     // collection's firstOrNull requires Dart 3.0+ or collection package
     final item = _items.where((i) => i.menuItem.id == menuItemId).firstOrNull;
     if (item == null) return;
-    if (item.quantity > 1) { item.quantity--; } else { _items.remove(item); }
+    if (item.quantity > 1) {
+      item.quantity--;
+    } else {
+      _items.remove(item);
+    }
     if (_items.isEmpty) _restaurantId = null;
     notifyListeners();
   }
@@ -181,7 +199,9 @@ class CartProvider extends ChangeNotifier {
   }
 
   void clearCart() {
-    _items.clear(); _restaurantId = null; _restaurantName = null;
+    _items.clear();
+    _restaurantId = null;
+    _restaurantName = null;
     notifyListeners();
   }
 
@@ -201,7 +221,8 @@ class OrderPollingProvider extends ChangeNotifier {
   bool get isPolling => _polling;
 
   /// Start polling /orders (for restaurant) every [interval]
-  void startPollingMyOrders(String token, {Duration interval = const Duration(seconds: 5)}) {
+  void startPollingMyOrders(String token,
+      {Duration interval = const Duration(seconds: 5)}) {
     _polling = true;
     _poll(token);
     _timer?.cancel();
@@ -209,7 +230,8 @@ class OrderPollingProvider extends ChangeNotifier {
   }
 
   /// Start polling /deliveries/available (for rider)
-  void startPollingAvailable(String token, {Duration interval = const Duration(seconds: 5)}) {
+  void startPollingAvailable(String token,
+      {Duration interval = const Duration(seconds: 5)}) {
     _polling = true;
     _pollAvailable(token);
     _timer?.cancel();

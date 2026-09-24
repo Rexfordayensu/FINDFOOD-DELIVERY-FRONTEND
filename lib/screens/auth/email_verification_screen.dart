@@ -112,7 +112,7 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen>
         }
 
         // Login the user in the provider
-        authProvider.login(
+        await authProvider.login(
           token: token,
           userId: userId,
           role: role,

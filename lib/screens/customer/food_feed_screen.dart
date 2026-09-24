@@ -7,7 +7,6 @@ import '../../models/models.dart';
 import '../../services/api_service.dart';
 import '../../services/providers.dart';
 import '../../services/local_customer_store.dart';
-import '../auth/login_screen.dart';
 import 'menu_detail_screen.dart';
 import '../../widgets/greeting_header.dart';
 
@@ -592,8 +591,7 @@ class _Header extends StatelessWidget {
                     ? AppTheme.accent.withValues(alpha: 0.3) : border,
                 onTap: () {
                   if (!auth.isLoggedIn) {
-                    Navigator.push(context, MaterialPageRoute(
-                        builder: (_) => const LoginScreen()));
+                    context.go('/login');
                   }
                 },
                 tooltip: auth.isLoggedIn ? 'Profile' : 'Sign in',

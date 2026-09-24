@@ -5,22 +5,20 @@ void main() {
     test('uses the backend otp_required value', () {
       expect(otpRequiredFromResponse({'otp_required': false}), isFalse);
       expect(otpRequiredFromResponse({'otp_required': true}), isTrue);
+      expect(otpRequiredFromResponse({'two_factor': true}), isFalse);
     });
-
-
-    
 
     test('allows normal password login when OTP is not requested', () {
-      expect(otpRequiredFromResponse({
-        'access_token': 'JWT_TOKEN_HERE',
-        'token_type': 'bearer',
-        'user_id': 12,
-        'role': 'customer',
-      }), isFalse);
+      expect(
+          otpRequiredFromResponse({
+            'access_token': 'JWT_TOKEN_HERE',
+            'token_type': 'bearer',
+            'user_id': 12,
+            'role': 'customer',
+          }),
+          isFalse);
     });
   });
-
-
 
   group('password reset helpers', () {
     test('extracts reset token from a deep link or browser URL', () {
@@ -51,12 +49,15 @@ void main() {
     });
   });
 }
+
 bool otpRequiredFromResponse(Map<String, dynamic> data) {
-  return data['otp_required'] == true || data['two_factor'] == true;
+  return data['otp_required'] == true;
 }
+
 String? extractResetTokenFromUri(Uri uri) {
   return uri.queryParameters['token'];
 }
+
 class PasswordResetException implements Exception {
   final String status;
   final String message;
