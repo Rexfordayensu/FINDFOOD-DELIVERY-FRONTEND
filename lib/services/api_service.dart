@@ -373,6 +373,8 @@ class ApiService {
     String? pickupPhone,
     String? kitchenNote,
     String? deliveryAddress,
+    double? deliveryLatitude,
+    double? deliveryLongitude,
     DateTime? scheduledFor,
   }) async {
     final payload = <String, dynamic>{
@@ -391,6 +393,10 @@ class ApiService {
     }
     if (deliveryAddress != null && deliveryAddress.trim().isNotEmpty) {
       payload['delivery_address'] = deliveryAddress.trim();
+    }
+    if (deliveryLatitude != null && deliveryLongitude != null) {
+      payload['delivery_latitude'] = deliveryLatitude;
+      payload['delivery_longitude'] = deliveryLongitude;
     }
     if (scheduledFor != null) {
       payload['scheduled_for'] = scheduledFor.toUtc().toIso8601String();

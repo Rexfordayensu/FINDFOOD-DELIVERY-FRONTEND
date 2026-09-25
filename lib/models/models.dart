@@ -19,7 +19,7 @@ class Restaurant {
     required this.isActive,
     required this.isApproved,
     required this.ownerId,
-    this.imageUrl, 
+    this.imageUrl,
     this.bannerUrl,
   });
 
@@ -44,7 +44,8 @@ class MenuItem {
   final int price; // pesewas
   final bool isAvailable;
   final int restaurantId;
-  final String? imageUrl; // NEW: uploaded photo path, e.g. /static/menu_images/xyz.jpg
+  final String?
+      imageUrl; // NEW: uploaded photo path, e.g. /static/menu_images/xyz.jpg
 
   MenuItem({
     required this.id,
@@ -84,6 +85,8 @@ class Order {
   final String? pickupPhone;
   final String? kitchenNote;
   final String? deliveryAddress;
+  final double? deliveryLatitude;
+  final double? deliveryLongitude;
   final DateTime? scheduledFor;
 
   Order({
@@ -97,6 +100,8 @@ class Order {
     this.pickupPhone,
     this.kitchenNote,
     this.deliveryAddress,
+    this.deliveryLatitude,
+    this.deliveryLongitude,
     this.scheduledFor,
   });
 
@@ -113,9 +118,11 @@ class Order {
         pickupPhone: json['pickup_phone'],
         kitchenNote: json['kitchen_note'],
         deliveryAddress: json['delivery_address'],
+        deliveryLatitude: (json['delivery_latitude'] as num?)?.toDouble(),
+        deliveryLongitude: (json['delivery_longitude'] as num?)?.toDouble(),
         scheduledFor: json['scheduled_for'] == null
-          ? null
-          : DateTime.tryParse(json['scheduled_for'].toString()),
+            ? null
+            : DateTime.tryParse(json['scheduled_for'].toString()),
       );
 
   String? get restaurantName => null;
@@ -131,6 +138,8 @@ class Order {
     String? pickupPhone,
     String? kitchenNote,
     String? deliveryAddress,
+    double? deliveryLatitude,
+    double? deliveryLongitude,
     DateTime? scheduledFor,
 
     // You can add other fields here if you need to copy them later
@@ -146,6 +155,8 @@ class Order {
       pickupPhone: pickupPhone ?? this.pickupPhone,
       kitchenNote: kitchenNote ?? this.kitchenNote,
       deliveryAddress: deliveryAddress ?? this.deliveryAddress,
+      deliveryLatitude: deliveryLatitude ?? this.deliveryLatitude,
+      deliveryLongitude: deliveryLongitude ?? this.deliveryLongitude,
       scheduledFor: scheduledFor ?? this.scheduledFor,
       // ... pass your other existing class fields here like:
       // total: total,
@@ -215,7 +226,8 @@ class ChatMessage {
         isMine: json['is_mine'] ?? false,
       );
 
-  static Future<Object?> getMessages({required String token, required int orderId}) async {
+  static Future<Object?> getMessages(
+      {required String token, required int orderId}) async {
     return null;
   }
 }
@@ -336,6 +348,7 @@ class Promotion {
         isActive: json['is_active'] ?? true,
       );
 }
+
 class PasswordResetException implements Exception {
   final String message;
   PasswordResetException(this.message);

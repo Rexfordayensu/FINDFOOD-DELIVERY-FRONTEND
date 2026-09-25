@@ -12,31 +12,31 @@ import '../../widgets/greeting_header.dart';
 
 // ── Cuisine colors used for image-free restaurant cards ──────────────────────
 const _cuisineData = {
-  'ghanaian':  {
+  'ghanaian': {
     'colors': [Color(0xFF7B1400), Color(0xFFD4380D)],
   },
-  'local':     {
+  'local': {
     'colors': [Color(0xFF7B1400), Color(0xFFD4380D)],
   },
-  'pizza':     {
+  'pizza': {
     'colors': [Color(0xFF0D2E6B), Color(0xFF1565C0)],
   },
-  'italian':   {
+  'italian': {
     'colors': [Color(0xFF0D2E6B), Color(0xFF1565C0)],
   },
-  'chinese':   {
+  'chinese': {
     'colors': [Color(0xFF0A3D1F), Color(0xFF2E7D32)],
   },
   'fast food': {
     'colors': [Color(0xFF3E1A00), Color(0xFFBF5600)],
   },
-  'burger':    {
+  'burger': {
     'colors': [Color(0xFF3E1A00), Color(0xFFBF5600)],
   },
-  'seafood':   {
+  'seafood': {
     'colors': [Color(0xFF003459), Color(0xFF0077B6)],
   },
-  'default':   {
+  'default': {
     'colors': [Color(0xFF1A1A2E), Color(0xFF16213E)],
   },
 };
@@ -48,6 +48,7 @@ Map<String, dynamic> _cuisineFor(String c) {
   }
   return _cuisineData['default']!;
 }
+
 String? _imageFor(dynamic r) {
   String? imageUrl;
 
@@ -55,7 +56,7 @@ String? _imageFor(dynamic r) {
     imageUrl = r['banner_url']?.toString() ?? r['image_url']?.toString();
   } else if (r != null) {
     try {
-        imageUrl = (r as dynamic).bannerUrl?.toString() ??
+      imageUrl = (r as dynamic).bannerUrl?.toString() ??
           (r as dynamic).imageUrl?.toString();
     } catch (_) {}
   }
@@ -68,12 +69,60 @@ String? _imageFor(dynamic r) {
 
 // ── Demo data ─────────────────────────────────────────────────────────────────
 final _demoRestaurants = [
-  Restaurant(id: -1, name: "Mama's Kitchen",  cuisineType: 'Local Ghanaian',   address: 'Osu, Accra',         email: '', isActive: true,  isApproved: true, ownerId: 0),
-  Restaurant(id: -2, name: 'Burger Republic', cuisineType: 'Fast Food',        address: 'Airport City, Accra', email: '', isActive: true,  isApproved: true, ownerId: 0),
-  Restaurant(id: -3, name: 'Dragon Palace',   cuisineType: 'Chinese',          address: 'East Legon, Accra',  email: '', isActive: true,  isApproved: true, ownerId: 0),
-  Restaurant(id: -4, name: "Auntie Ama's",    cuisineType: 'Local Ghanaian',   address: 'Cantonments, Accra', email: '', isActive: false, isApproved: true, ownerId: 0),
-  Restaurant(id: -5, name: 'Pizzeria Roma',   cuisineType: 'Italian / Pizza',  address: 'Labone, Accra',      email: '', isActive: true,  isApproved: true, ownerId: 0),
-  Restaurant(id: -6, name: 'Ocean Catch',     cuisineType: 'Seafood',          address: 'Tema, Accra',        email: '', isActive: true,  isApproved: true, ownerId: 0),
+  Restaurant(
+      id: -1,
+      name: "Mama's Kitchen",
+      cuisineType: 'Local Ghanaian',
+      address: 'Osu, Accra',
+      email: '',
+      isActive: true,
+      isApproved: true,
+      ownerId: 0),
+  Restaurant(
+      id: -2,
+      name: 'Burger Republic',
+      cuisineType: 'Fast Food',
+      address: 'Airport City, Accra',
+      email: '',
+      isActive: true,
+      isApproved: true,
+      ownerId: 0),
+  Restaurant(
+      id: -3,
+      name: 'Dragon Palace',
+      cuisineType: 'Chinese',
+      address: 'East Legon, Accra',
+      email: '',
+      isActive: true,
+      isApproved: true,
+      ownerId: 0),
+  Restaurant(
+      id: -4,
+      name: "Auntie Ama's",
+      cuisineType: 'Local Ghanaian',
+      address: 'Cantonments, Accra',
+      email: '',
+      isActive: false,
+      isApproved: true,
+      ownerId: 0),
+  Restaurant(
+      id: -5,
+      name: 'Pizzeria Roma',
+      cuisineType: 'Italian / Pizza',
+      address: 'Labone, Accra',
+      email: '',
+      isActive: true,
+      isApproved: true,
+      ownerId: 0),
+  Restaurant(
+      id: -6,
+      name: 'Ocean Catch',
+      cuisineType: 'Seafood',
+      address: 'Tema, Accra',
+      email: '',
+      isActive: true,
+      isApproved: true,
+      ownerId: 0),
 ];
 
 // ── Main screen ───────────────────────────────────────────────────────────────
@@ -95,18 +144,25 @@ class FoodFeedScreen extends StatefulWidget {
 class _FoodFeedScreenState extends State<FoodFeedScreen>
     with TickerProviderStateMixin {
   List<Restaurant> _restaurants = [];
-  List<Restaurant> _filtered    = [];
-  bool   _loading  = true;
-  String _error    = '';
-  String _search   = '';
-  String _filter   = 'All';
-  String _sortBy   = 'recommended';
+  List<Restaurant> _filtered = [];
+  bool _loading = true;
+  String _error = '';
+  String _search = '';
+  String _filter = 'All';
+  String _sortBy = 'recommended';
   Set<int> _favoriteIds = {};
   List<int> _recentIds = [];
   List<String> _recentSearches = [];
-  int    _navIndex = 0;
+  int _navIndex = 0;
 
-  final _filters    = ['All', 'Ghanaian', 'Fast food', 'Pizza', 'Chinese', 'Seafood'];
+  final _filters = [
+    'All',
+    'Ghanaian',
+    'Fast food',
+    'Pizza',
+    'Chinese',
+    'Seafood'
+  ];
   final _searchCtrl = TextEditingController();
 
   // Stagger animation controller
@@ -132,12 +188,18 @@ class _FoodFeedScreenState extends State<FoodFeedScreen>
   }
 
   Future<void> _load() async {
-    setState(() { _loading = true; _error = ''; });
+    setState(() {
+      _loading = true;
+      _error = '';
+    });
     try {
       final list = await ApiService.getRestaurants();
-      final ids  = list.map((r) => r.id).toSet();
+      final ids = list.map((r) => r.id).toSet();
       final extra = _demoRestaurants.where((d) => !ids.contains(d.id)).toList();
-      setState(() { _restaurants = [...list, ...extra]; _applyFilter(); });
+      setState(() {
+        _restaurants = [...list, ...extra];
+        _applyFilter();
+      });
       _staggerCtrl.forward(from: 0);
     } catch (e) {
       setState(() => _error = e.toString().replaceAll('Exception: ', ''));
@@ -151,7 +213,7 @@ class _FoodFeedScreenState extends State<FoodFeedScreen>
     final recentIds = await LocalCustomerStore.recentlyViewedIds();
     final searches = await LocalCustomerStore.recentSearches();
     if (!mounted) return;
-             setState(() {
+    setState(() {
       _favoriteIds = favorites.toSet();
       _recentIds = recentIds.toList();
       _recentSearches = searches;
@@ -169,11 +231,14 @@ class _FoodFeedScreenState extends State<FoodFeedScreen>
       return ms && mf;
     }).toList();
     if (_sortBy == 'name') {
-      matching.sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+      matching
+          .sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
     } else if (_sortBy == 'available') {
-      matching.sort((a, b) => (b.isActive ? 1 : 0).compareTo(a.isActive ? 1 : 0));
+      matching
+          .sort((a, b) => (b.isActive ? 1 : 0).compareTo(a.isActive ? 1 : 0));
     } else if (_sortBy == 'recent') {
-      matching.sort((a, b) => _recentPosition(a.id).compareTo(_recentPosition(b.id)));
+      matching.sort(
+          (a, b) => _recentPosition(a.id).compareTo(_recentPosition(b.id)));
     }
     _filtered = matching;
     if (mounted) _staggerCtrl.forward(from: 0);
@@ -207,8 +272,8 @@ class _FoodFeedScreenState extends State<FoodFeedScreen>
     await LocalCustomerStore.addSearch(query);
     if (!mounted) return;
     setState(() {
-      _recentSearches.removeWhere(
-          (item) => item.toLowerCase() == query.toLowerCase());
+      _recentSearches
+          .removeWhere((item) => item.toLowerCase() == query.toLowerCase());
       _recentSearches.insert(0, query);
       if (_recentSearches.length > 8) _recentSearches.removeLast();
     });
@@ -216,15 +281,15 @@ class _FoodFeedScreenState extends State<FoodFeedScreen>
 
   @override
   Widget build(BuildContext context) {
-    final auth    = Provider.of<AuthProvider>(context);
-    final cart    = Provider.of<CartProvider>(context);
-    final themeP  = Provider.of<ThemeProvider>(context);
-    final bg      = AppColors.bg(context);
-    final surf    = AppColors.surface(context);
-    final border  = AppColors.border(context);
+    final auth = Provider.of<AuthProvider>(context);
+    final cart = Provider.of<CartProvider>(context);
+    final themeP = Provider.of<ThemeProvider>(context);
+    final bg = AppColors.bg(context);
+    final surf = AppColors.surface(context);
+    final border = AppColors.border(context);
     final textPri = AppColors.textPrimary(context);
     final textSec = AppColors.textSecondary(context);
-    final textHint= AppColors.textHint(context);
+    final textHint = AppColors.textHint(context);
 
     return Scaffold(
       backgroundColor: bg,
@@ -233,23 +298,36 @@ class _FoodFeedScreenState extends State<FoodFeedScreen>
           children: [
             // ── HEADER ────────────────────────────────────────
             _Header(
-              auth: auth, cart: cart, themeP: themeP,
-              textPri: textPri, textSec: textSec,
-              textHint: textHint, surf: surf, border: border,
+              auth: auth,
+              cart: cart,
+              themeP: themeP,
+              textPri: textPri,
+              textSec: textSec,
+              textHint: textHint,
+              surf: surf,
+              border: border,
               searchCtrl: _searchCtrl,
               recentSearches: _recentSearches,
               onSearch: (v) {
-                setState(() { _search = v; _applyFilter(); });
+                setState(() {
+                  _search = v;
+                  _applyFilter();
+                });
                 _rememberSearch(v);
               },
             ),
 
             // ── FILTER CHIPS ──────────────────────────────────
             _FilterRow(
-              filters: _filters, selected: _filter,
-              surf: surf, border: border,
+              filters: _filters,
+              selected: _filter,
+              surf: surf,
+              border: border,
               textSec: textSec,
-              onSelect: (f) => setState(() { _filter = f; _applyFilter(); }),
+              onSelect: (f) => setState(() {
+                _filter = f;
+                _applyFilter();
+              }),
             ),
             const SizedBox(height: 8),
 
@@ -272,20 +350,24 @@ class _FoodFeedScreenState extends State<FoodFeedScreen>
                               subtitle: 'Try different filters.',
                               actionLabel: 'Clear',
                               onAction: () => setState(() {
-                                _filter = 'All'; _search = '';
-                                _searchCtrl.clear(); _applyFilter();
+                                _filter = 'All';
+                                _search = '';
+                                _searchCtrl.clear();
+                                _applyFilter();
                               }),
                             )
                           : RefreshIndicator(
                               color: AppTheme.accent,
                               onRefresh: _load,
                               child: ListView.builder(
-                                padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
+                                padding:
+                                    const EdgeInsets.fromLTRB(16, 4, 16, 24),
                                 itemCount: _filtered.length + 1,
                                 itemBuilder: (_, i) {
                                   if (i == 0) {
                                     return Padding(
-                                      padding: const EdgeInsets.only(bottom: 14),
+                                      padding:
+                                          const EdgeInsets.only(bottom: 14),
                                       child: Row(
                                         mainAxisAlignment:
                                             MainAxisAlignment.spaceBetween,
@@ -293,9 +375,10 @@ class _FoodFeedScreenState extends State<FoodFeedScreen>
                                           Expanded(
                                             child: Text('All restaurants',
                                                 style: TextStyle(
-                                                  color: textPri,
-                                                  fontSize: 17,
-                                                  fontWeight: FontWeight.w700)),
+                                                    color: textPri,
+                                                    fontSize: 17,
+                                                    fontWeight:
+                                                        FontWeight.w700)),
                                           ),
                                           _SortButton(
                                             selected: _sortBy,
@@ -308,22 +391,26 @@ class _FoodFeedScreenState extends State<FoodFeedScreen>
                                             padding: const EdgeInsets.symmetric(
                                                 horizontal: 10, vertical: 4),
                                             decoration: BoxDecoration(
-                                              color: AppTheme.accent.withValues(alpha: 0.1),
-                                              borderRadius: BorderRadius.circular(20),
+                                              color: AppTheme.accent
+                                                  .withValues(alpha: 0.1),
+                                              borderRadius:
+                                                  BorderRadius.circular(20),
                                             ),
                                             child: Text(
                                                 '${_filtered.length} places',
                                                 style: const TextStyle(
                                                     color: AppTheme.accent,
                                                     fontSize: 12,
-                                                    fontWeight: FontWeight.w700)),
+                                                    fontWeight:
+                                                        FontWeight.w700)),
                                           ),
                                         ],
                                       ),
                                     );
                                   }
-                                  final r   = _filtered[i - 1];
-                                  final del = Duration(milliseconds: 80 * (i - 1));
+                                  final r = _filtered[i - 1];
+                                  final del =
+                                      Duration(milliseconds: 80 * (i - 1));
                                   return _AnimatedCard(
                                     key: ValueKey(r.id),
                                     delay: del,
@@ -331,20 +418,22 @@ class _FoodFeedScreenState extends State<FoodFeedScreen>
                                     child: _RestaurantCard(
                                       restaurant: r,
                                       isDemo: r.id < 0,
-                                        isFavorite: _favoriteIds.contains(r.id),
-                                        onFavorite: () => _toggleFavorite(r),
+                                      isFavorite: _favoriteIds.contains(r.id),
+                                      onFavorite: () => _toggleFavorite(r),
                                       onTap: r.id < 0
                                           ? () {
-                                            _rememberViewed(r);
-                                            _showComingSoon(context, r);
-                                          }
+                                              _rememberViewed(r);
+                                              _showComingSoon(context, r);
+                                            }
                                           : () {
-                                            _rememberViewed(r);
-                                            Navigator.push(context,
-                                              MaterialPageRoute(
-                                                builder: (_) =>
-                                                  MenuDetailScreen(restaurant: r)));
-                                          },
+                                              _rememberViewed(r);
+                                              Navigator.push(
+                                                  context,
+                                                  MaterialPageRoute(
+                                                      builder: (_) =>
+                                                          MenuDetailScreen(
+                                                              restaurant: r)));
+                                            },
                                     ),
                                   );
                                 },
@@ -405,7 +494,8 @@ class _FoodFeedScreenState extends State<FoodFeedScreen>
           mainAxisSize: MainAxisSize.min,
           children: [
             Container(
-              width: 36, height: 4,
+              width: 36,
+              height: 4,
               decoration: BoxDecoration(
                 color: AppColors.border(context),
                 borderRadius: BorderRadius.circular(2),
@@ -425,14 +515,16 @@ class _FoodFeedScreenState extends State<FoodFeedScreen>
             Text(r.name,
                 style: TextStyle(
                     color: AppColors.textPrimary(context),
-                    fontSize: 20, fontWeight: FontWeight.w800)),
+                    fontSize: 20,
+                    fontWeight: FontWeight.w800)),
             const SizedBox(height: 8),
             Text(
               'This restaurant is coming soon\nto FINDFOOD. Check back shortly!',
               textAlign: TextAlign.center,
               style: TextStyle(
                   color: AppColors.textSecondary(context),
-                  fontSize: 14, height: 1.5),
+                  fontSize: 14,
+                  height: 1.5),
             ),
             const SizedBox(height: 24),
             SizedBox(
@@ -449,8 +541,8 @@ class _FoodFeedScreenState extends State<FoodFeedScreen>
     );
   }
 
-  void _showProfileSheet(BuildContext ctx, AuthProvider auth,
-      ThemeProvider themeP) {
+  void _showProfileSheet(
+      BuildContext ctx, AuthProvider auth, ThemeProvider themeP) {
     showModalBottomSheet(
       context: ctx,
       backgroundColor: AppColors.card(ctx),
@@ -461,7 +553,9 @@ class _FoodFeedScreenState extends State<FoodFeedScreen>
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Container(width: 36, height: 4,
+            Container(
+                width: 36,
+                height: 4,
                 decoration: BoxDecoration(
                     color: AppColors.border(ctx),
                     borderRadius: BorderRadius.circular(2))),
@@ -471,14 +565,18 @@ class _FoodFeedScreenState extends State<FoodFeedScreen>
               backgroundColor: AppTheme.accentDim,
               child: Text(
                 (auth.role ?? 'U')[0].toUpperCase(),
-                style: const TextStyle(color: AppTheme.accent,
-                    fontSize: 26, fontWeight: FontWeight.w900),
+                style: const TextStyle(
+                    color: AppTheme.accent,
+                    fontSize: 26,
+                    fontWeight: FontWeight.w900),
               ),
             ),
             const SizedBox(height: 12),
             Text(auth.role?.toUpperCase() ?? 'USER',
-                style: TextStyle(color: AppColors.textPrimary(ctx),
-                    fontSize: 17, fontWeight: FontWeight.w800)),
+                style: TextStyle(
+                    color: AppColors.textPrimary(ctx),
+                    fontSize: 17,
+                    fontWeight: FontWeight.w800)),
             const SizedBox(height: 4),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
@@ -487,17 +585,25 @@ class _FoodFeedScreenState extends State<FoodFeedScreen>
                 borderRadius: BorderRadius.circular(20),
               ),
               child: Text(auth.role ?? '',
-                  style: const TextStyle(color: AppTheme.accent,
-                      fontSize: 12, fontWeight: FontWeight.w700)),
+                  style: const TextStyle(
+                      color: AppTheme.accent,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700)),
             ),
             const SizedBox(height: 28),
             // Theme toggle
             _SheetBtn(
               icon: themeP.isDark
-                  ? Icons.wb_sunny_rounded : Icons.nightlight_round,
-              label: themeP.isDark ? 'Switch to light mode' : 'Switch to dark mode',
+                  ? Icons.wb_sunny_rounded
+                  : Icons.nightlight_round,
+              label: themeP.isDark
+                  ? 'Switch to light mode'
+                  : 'Switch to dark mode',
               color: AppTheme.accent,
-              onTap: () { Navigator.pop(ctx); themeP.toggle(); },
+              onTap: () {
+                Navigator.pop(ctx);
+                themeP.toggle();
+              },
             ),
             const SizedBox(height: 10),
             _SheetBtn(
@@ -531,10 +637,16 @@ class _Header extends StatelessWidget {
   final ValueChanged<String> onSearch;
 
   const _Header({
-    required this.auth, required this.cart, required this.themeP,
-    required this.textPri, required this.textSec, required this.textHint,
-    required this.surf, required this.border,
-    required this.searchCtrl, required this.recentSearches,
+    required this.auth,
+    required this.cart,
+    required this.themeP,
+    required this.textPri,
+    required this.textSec,
+    required this.textHint,
+    required this.surf,
+    required this.border,
+    required this.searchCtrl,
+    required this.recentSearches,
     required this.onSearch,
   });
 
@@ -548,42 +660,51 @@ class _Header extends StatelessWidget {
           Row(
             children: [
               Container(
-                width: 36, height: 36,
+                width: 36,
+                height: 36,
                 decoration: BoxDecoration(
                     color: AppTheme.accent.withValues(alpha: 0.92),
-                  borderRadius: BorderRadius.circular(10),
-                  boxShadow: [
-                    BoxShadow(
-                      color: AppTheme.accent.withValues(alpha: 0.18),
-                      blurRadius: 12,
-                      offset: const Offset(0, 4),
-                    ),
-                  ]),
+                    borderRadius: BorderRadius.circular(10),
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppTheme.accent.withValues(alpha: 0.18),
+                        blurRadius: 12,
+                        offset: const Offset(0, 4),
+                      ),
+                    ]),
                 child: const Icon(Icons.fastfood_rounded,
-                  color: Colors.black, size: 19),
+                    color: Colors.black, size: 19),
               ),
               const SizedBox(width: 10),
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text('FINDFOOD',
-                      style: TextStyle(color: textPri,
-                        fontFamily: 'Georgia',
-                        fontWeight: FontWeight.w700, fontSize: 14,
-                        letterSpacing: 0.6)),
+                      style: TextStyle(
+                          color: textPri,
+                          fontFamily: 'Georgia',
+                          fontWeight: FontWeight.w700,
+                          fontSize: 14,
+                          letterSpacing: 0.6)),
                 ],
               ),
               const Spacer(),
               _IconBtn(
                 icon: themeP.isDark
-                    ? Icons.wb_sunny_rounded : Icons.nightlight_round,
-                color: textPri, bg: surf, border: border,
-                onTap: themeP.toggle, tooltip: 'Toggle theme',
+                    ? Icons.wb_sunny_rounded
+                    : Icons.nightlight_round,
+                color: textPri,
+                bg: surf,
+                border: border,
+                onTap: themeP.toggle,
+                tooltip: 'Toggle theme',
               ),
               const SizedBox(width: 8),
               _IconBtn(
                 icon: Icons.shopping_bag_outlined,
-                color: textPri, bg: surf, border: border,
+                color: textPri,
+                bg: surf,
+                border: border,
                 badge: cart.itemCount,
                 onTap: () => context.go('/cart'),
                 tooltip: 'Cart',
@@ -591,11 +712,13 @@ class _Header extends StatelessWidget {
               const SizedBox(width: 8),
               _IconBtn(
                 icon: auth.isLoggedIn
-                    ? Icons.account_circle_rounded : Icons.login_rounded,
+                    ? Icons.account_circle_rounded
+                    : Icons.login_rounded,
                 color: auth.isLoggedIn ? AppTheme.accent : textPri,
                 bg: auth.isLoggedIn ? AppTheme.accentDim : surf,
                 border: auth.isLoggedIn
-                    ? AppTheme.accent.withValues(alpha: 0.3) : border,
+                    ? AppTheme.accent.withValues(alpha: 0.3)
+                    : border,
                 onTap: () {
                   if (!auth.isLoggedIn) {
                     context.go('/login');
@@ -616,8 +739,10 @@ class _Header extends StatelessWidget {
           // Animated search bar
           _AnimatedSearchBar(
             controller: searchCtrl,
-            textPri: textPri, textHint: textHint,
-            surf: surf, border: border,
+            textPri: textPri,
+            textHint: textHint,
+            surf: surf,
+            border: border,
             onChanged: onSearch,
           ),
           if (recentSearches.isNotEmpty) ...[
@@ -634,7 +759,8 @@ class _Header extends StatelessWidget {
                     onSearch(recentSearches[i]);
                   },
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
                     decoration: BoxDecoration(
                       color: surf.withValues(alpha: 0.62),
                       borderRadius: BorderRadius.circular(10),
@@ -660,9 +786,12 @@ class _AnimatedSearchBar extends StatefulWidget {
   final ValueChanged<String> onChanged;
 
   const _AnimatedSearchBar({
-    required this.controller, required this.textPri,
-    required this.textHint, required this.surf,
-    required this.border, required this.onChanged,
+    required this.controller,
+    required this.textPri,
+    required this.textHint,
+    required this.surf,
+    required this.border,
+    required this.onChanged,
   });
 
   @override
@@ -708,7 +837,8 @@ class _AnimatedSearchBarState extends State<_AnimatedSearchBar> {
             child: Icon(
               _focused ? Icons.search_rounded : Icons.search_outlined,
               color: _focused ? AppTheme.accent : widget.textHint,
-              size: 18, key: ValueKey(_focused),
+              size: 18,
+              key: ValueKey(_focused),
             ),
           ),
           const SizedBox(width: 8),
@@ -739,8 +869,8 @@ class _AnimatedSearchBarState extends State<_AnimatedSearchBar> {
               },
               child: Padding(
                 padding: const EdgeInsets.all(12),
-                child: Icon(Icons.close_rounded,
-                    color: widget.textHint, size: 15),
+                child:
+                    Icon(Icons.close_rounded, color: widget.textHint, size: 15),
               ),
             ),
         ],
@@ -757,9 +887,12 @@ class _FilterRow extends StatelessWidget {
   final ValueChanged<String> onSelect;
 
   const _FilterRow({
-    required this.filters, required this.selected,
-    required this.surf, required this.border,
-    required this.textSec, required this.onSelect,
+    required this.filters,
+    required this.selected,
+    required this.surf,
+    required this.border,
+    required this.textSec,
+    required this.onSelect,
   });
 
   @override
@@ -772,7 +905,7 @@ class _FilterRow extends StatelessWidget {
         itemCount: filters.length,
         separatorBuilder: (_, __) => const SizedBox(width: 8),
         itemBuilder: (_, i) {
-          final f      = filters[i];
+          final f = filters[i];
           final active = selected == f;
           return GestureDetector(
             onTap: () => onSelect(f),
@@ -781,17 +914,20 @@ class _FilterRow extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 7),
               decoration: BoxDecoration(
                 color: active
-                  ? AppTheme.accent.withValues(alpha: 0.92)
-                  : surf.withValues(alpha: 0.68),
+                    ? AppTheme.accent.withValues(alpha: 0.92)
+                    : surf.withValues(alpha: 0.68),
                 borderRadius: BorderRadius.circular(20),
                 border: Border.all(
-                  color: active
-                    ? AppTheme.accent
-                    : border.withValues(alpha: 0.7)),
+                    color: active
+                        ? AppTheme.accent
+                        : border.withValues(alpha: 0.7)),
                 boxShadow: active
-                    ? [BoxShadow(
-                        color: AppTheme.accent.withValues(alpha: 0.25),
-                        blurRadius: 8, offset: const Offset(0, 3))]
+                    ? [
+                        BoxShadow(
+                            color: AppTheme.accent.withValues(alpha: 0.25),
+                            blurRadius: 8,
+                            offset: const Offset(0, 3))
+                      ]
                     : [],
               ),
               child: Text(f,
@@ -852,8 +988,8 @@ class _AnimatedCard extends StatelessWidget {
       animation: ctrl,
       builder: (_, __) {
         final start = (delay.inMilliseconds / 900).clamp(0.0, 0.85);
-        final end   = (start + 0.35).clamp(0.0, 1.0);
-        final t     = CurvedAnimation(
+        final end = (start + 0.35).clamp(0.0, 1.0);
+        final t = CurvedAnimation(
           parent: ctrl,
           curve: Interval(start, end, curve: Curves.easeOutCubic),
         );
@@ -897,33 +1033,39 @@ class _RestaurantCardState extends State<_RestaurantCard>
     super.initState();
     _pressCtrl = AnimationController(
         vsync: this, duration: const Duration(milliseconds: 120));
-    _scaleAnim = Tween<double>(begin: 1.0, end: 0.97).animate(
-        CurvedAnimation(parent: _pressCtrl, curve: Curves.easeInOut));
+    _scaleAnim = Tween<double>(begin: 1.0, end: 0.97)
+        .animate(CurvedAnimation(parent: _pressCtrl, curve: Curves.easeInOut));
   }
 
   @override
-  void dispose() { _pressCtrl.dispose(); super.dispose(); }
+  void dispose() {
+    _pressCtrl.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    final r       = widget.restaurant;
-    final data     = _cuisineFor(r.cuisineType);
-    final colors   = data['colors'] as List<Color>;
-    final card    = AppColors.card(context);
-    final border  = AppColors.border(context);
+    final r = widget.restaurant;
+    final data = _cuisineFor(r.cuisineType);
+    final colors = data['colors'] as List<Color>;
+    final card = AppColors.card(context);
+    final border = AppColors.border(context);
     final textPri = AppColors.textPrimary(context);
     final textSec = AppColors.textSecondary(context);
-    final textHint= AppColors.textHint(context);
+    final textHint = AppColors.textHint(context);
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 18),
       child: MouseRegion(
         onEnter: (_) => setState(() => _hovered = true),
-        onExit:  (_) => setState(() => _hovered = false),
+        onExit: (_) => setState(() => _hovered = false),
         child: GestureDetector(
           onTapDown: (_) => _pressCtrl.forward(),
-          onTapUp:   (_) { _pressCtrl.reverse(); widget.onTap?.call(); },
-          onTapCancel: ()  => _pressCtrl.reverse(),
+          onTapUp: (_) {
+            _pressCtrl.reverse();
+            widget.onTap?.call();
+          },
+          onTapCancel: () => _pressCtrl.reverse(),
           child: ScaleTransition(
             scale: _scaleAnim,
             child: AnimatedContainer(
@@ -933,7 +1075,8 @@ class _RestaurantCardState extends State<_RestaurantCard>
                 borderRadius: BorderRadius.circular(22),
                 border: Border.all(
                     color: _hovered
-                        ? AppTheme.accent.withValues(alpha: 0.4) : border,
+                        ? AppTheme.accent.withValues(alpha: 0.4)
+                        : border,
                     width: _hovered ? 1.5 : 1),
                 boxShadow: [
                   BoxShadow(
@@ -955,8 +1098,8 @@ class _RestaurantCardState extends State<_RestaurantCard>
                         duration: const Duration(milliseconds: 200),
                         height: _hovered ? 166 : 156,
                         decoration: const BoxDecoration(
-                          borderRadius: BorderRadius.vertical(
-                              top: Radius.circular(22)),
+                          borderRadius:
+                              BorderRadius.vertical(top: Radius.circular(22)),
                         ),
                         child: ClipRRect(
                           borderRadius: const BorderRadius.vertical(
@@ -971,8 +1114,23 @@ class _RestaurantCardState extends State<_RestaurantCard>
                                   key: ValueKey(r.id),
                                   fit: BoxFit.cover,
                                   loadingBuilder: (_, child, progress) {
-                                  if (progress == null) return child;
-                                  return Container(
+                                    if (progress == null) return child;
+                                    return Container(
+                                      decoration: BoxDecoration(
+                                        gradient: LinearGradient(
+                                          begin: Alignment.topLeft,
+                                          end: Alignment.bottomRight,
+                                          colors: colors,
+                                        ),
+                                      ),
+                                      child: const Center(
+                                        child: CircularProgressIndicator(
+                                            color: AppTheme.accent,
+                                            strokeWidth: 2),
+                                      ),
+                                    );
+                                  },
+                                  errorBuilder: (_, __, ___) => Container(
                                     decoration: BoxDecoration(
                                       gradient: LinearGradient(
                                         begin: Alignment.topLeft,
@@ -981,24 +1139,9 @@ class _RestaurantCardState extends State<_RestaurantCard>
                                       ),
                                     ),
                                     child: const Center(
-                                      child: CircularProgressIndicator(
-                                          color: AppTheme.accent,
-                                          strokeWidth: 2),
+                                      child: Icon(Icons.restaurant_rounded,
+                                          color: Colors.white54, size: 48),
                                     ),
-                                  );
-                                  },
-                                  errorBuilder: (_, __, ___) => Container(
-                                  decoration: BoxDecoration(
-                                    gradient: LinearGradient(
-                                      begin: Alignment.topLeft,
-                                      end: Alignment.bottomRight,
-                                      colors: colors,
-                                    ),
-                                  ),
-                                  child: const Center(
-                                    child: Icon(Icons.restaurant_rounded,
-                                        color: Colors.white54, size: 48),
-                                  ),
                                   ),
                                 )
                               else
@@ -1019,8 +1162,10 @@ class _RestaurantCardState extends State<_RestaurantCard>
                                     begin: Alignment.topCenter,
                                     end: Alignment.bottomCenter,
                                     colors: [
-                                      Colors.black.withValues(alpha: _hovered ? 0.15 : 0.05),
-                                      Colors.black.withValues(alpha: _hovered ? 0.55 : 0.35),
+                                      Colors.black.withValues(
+                                          alpha: _hovered ? 0.15 : 0.05),
+                                      Colors.black.withValues(
+                                          alpha: _hovered ? 0.55 : 0.35),
                                     ],
                                   ),
                                 ),
@@ -1031,7 +1176,8 @@ class _RestaurantCardState extends State<_RestaurantCard>
                       ),
                       // Status badge
                       Positioned(
-                        top: 12, right: 12,
+                        top: 12,
+                        right: 12,
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
@@ -1065,17 +1211,20 @@ class _RestaurantCardState extends State<_RestaurantCard>
                                 borderRadius: BorderRadius.circular(20),
                                 border: r.isActive
                                     ? Border.all(
-                                        color: AppTheme.success.withValues(alpha: 0.4))
+                                        color: AppTheme.success
+                                            .withValues(alpha: 0.4))
                                     : null,
                               ),
                               child: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
                                   Container(
-                                    width: 6, height: 6,
+                                    width: 6,
+                                    height: 6,
                                     decoration: BoxDecoration(
                                       color: r.isActive
-                                          ? AppTheme.success : Colors.grey,
+                                          ? AppTheme.success
+                                          : Colors.grey,
                                       shape: BoxShape.circle,
                                     ),
                                   ),
@@ -1094,7 +1243,8 @@ class _RestaurantCardState extends State<_RestaurantCard>
                       // Demo badge
                       if (r.id < 0)
                         Positioned(
-                          top: 12, left: 12,
+                          top: 12,
+                          left: 12,
                           child: Container(
                             padding: const EdgeInsets.symmetric(
                                 horizontal: 8, vertical: 3),
@@ -1112,7 +1262,8 @@ class _RestaurantCardState extends State<_RestaurantCard>
                       // Hover arrow CTA
                       if (_hovered && widget.onTap != null)
                         Positioned(
-                          bottom: 12, right: 12,
+                          bottom: 12,
+                          right: 12,
                           child: AnimatedOpacity(
                             opacity: _hovered ? 1.0 : 0.0,
                             duration: const Duration(milliseconds: 200),
@@ -1124,7 +1275,8 @@ class _RestaurantCardState extends State<_RestaurantCard>
                               ),
                               child: const Icon(
                                 Icons.arrow_forward_rounded,
-                                color: Colors.black, size: 16,
+                                color: Colors.black,
+                                size: 16,
                               ),
                             ),
                           ),
@@ -1159,8 +1311,8 @@ class _RestaurantCardState extends State<_RestaurantCard>
                                     fontSize: 12,
                                     fontWeight: FontWeight.w700)),
                             Text(' (120+)',
-                                style: TextStyle(
-                                    color: textHint, fontSize: 11)),
+                                style:
+                                    TextStyle(color: textHint, fontSize: 11)),
                           ],
                         ),
                         const SizedBox(height: 4),
@@ -1173,16 +1325,16 @@ class _RestaurantCardState extends State<_RestaurantCard>
                                 color: textHint, size: 13),
                             const SizedBox(width: 3),
                             Text('25–35 min',
-                                style: TextStyle(
-                                    color: textHint, fontSize: 12)),
+                                style:
+                                    TextStyle(color: textHint, fontSize: 12)),
                             const SizedBox(width: 10),
                             Icon(Icons.location_on_outlined,
                                 color: textHint, size: 13),
                             const SizedBox(width: 3),
                             Expanded(
                               child: Text(r.address,
-                                  style: TextStyle(
-                                      color: textHint, fontSize: 12),
+                                  style:
+                                      TextStyle(color: textHint, fontSize: 12),
                                   overflow: TextOverflow.ellipsis),
                             ),
                           ],
@@ -1209,7 +1361,8 @@ class _RestaurantCardState extends State<_RestaurantCard>
                                 borderRadius: BorderRadius.circular(14),
                                 boxShadow: [
                                   BoxShadow(
-                                    color: AppTheme.accent.withValues(alpha: 0.35),
+                                    color:
+                                        AppTheme.accent.withValues(alpha: 0.35),
                                     blurRadius: 10,
                                     offset: const Offset(0, 4),
                                   ),
@@ -1262,8 +1415,8 @@ class _Pill extends StatelessWidget {
         border: Border.all(color: color.withValues(alpha: 0.25)),
       ),
       child: Text(label,
-          style: TextStyle(color: color,
-              fontSize: 11, fontWeight: FontWeight.w600)),
+          style: TextStyle(
+              color: color, fontSize: 11, fontWeight: FontWeight.w600)),
     );
   }
 }
@@ -1277,10 +1430,13 @@ class _IconBtn extends StatefulWidget {
   final String tooltip;
 
   const _IconBtn({
-    required this.icon, required this.color,
-    required this.bg, required this.border,
+    required this.icon,
+    required this.color,
+    required this.bg,
+    required this.border,
     this.badge = 0,
-    required this.onTap, required this.tooltip,
+    required this.onTap,
+    required this.tooltip,
   });
 
   @override
@@ -1296,7 +1452,7 @@ class _IconBtnState extends State<_IconBtn> {
       message: widget.tooltip,
       child: MouseRegion(
         onEnter: (_) => setState(() => _hovered = true),
-        onExit:  (_) => setState(() => _hovered = false),
+        onExit: (_) => setState(() => _hovered = false),
         child: GestureDetector(
           onTap: widget.onTap,
           child: Stack(
@@ -1304,7 +1460,8 @@ class _IconBtnState extends State<_IconBtn> {
             children: [
               AnimatedContainer(
                 duration: const Duration(milliseconds: 180),
-                width: 38, height: 38,
+                width: 38,
+                height: 38,
                 decoration: BoxDecoration(
                   color: _hovered
                       ? AppTheme.accent.withValues(alpha: 0.15)
@@ -1319,9 +1476,11 @@ class _IconBtnState extends State<_IconBtn> {
               ),
               if (widget.badge > 0)
                 Positioned(
-                  top: -4, right: -4,
+                  top: -4,
+                  right: -4,
                   child: Container(
-                    width: 16, height: 16,
+                    width: 16,
+                    height: 16,
                     decoration: const BoxDecoration(
                         color: AppTheme.accent, shape: BoxShape.circle),
                     child: Center(
@@ -1348,32 +1507,34 @@ class _BottomNav extends StatelessWidget {
   final Color textHint, surf, border;
 
   const _BottomNav({
-    required this.index, required this.cartCount,
-    required this.onTap, required this.textHint,
-    required this.surf, required this.border,
+    required this.index,
+    required this.cartCount,
+    required this.onTap,
+    required this.textHint,
+    required this.surf,
+    required this.border,
   });
 
   @override
   Widget build(BuildContext context) {
     final items = [
-      (Icons.home_rounded,          Icons.home_outlined,          'Home'),
-      (Icons.search_rounded,        Icons.search_outlined,        'Search'),
-      (Icons.shopping_bag_rounded,  Icons.shopping_bag_outlined,  'Cart'),
-      (Icons.receipt_long_rounded,  Icons.receipt_long_outlined,  'Orders'),
-      (Icons.person_rounded,        Icons.person_outline_rounded, 'Profile'),
+      (Icons.home_rounded, Icons.home_outlined, 'Home'),
+      (Icons.search_rounded, Icons.search_outlined, 'Search'),
+      (Icons.shopping_bag_rounded, Icons.shopping_bag_outlined, 'Cart'),
+      (Icons.receipt_long_rounded, Icons.receipt_long_outlined, 'Orders'),
+      (Icons.person_rounded, Icons.person_outline_rounded, 'Profile'),
     ];
 
     return Container(
       decoration: BoxDecoration(
-          color: surf,
-          border: Border(top: BorderSide(color: border))),
+          color: surf, border: Border(top: BorderSide(color: border))),
       child: SafeArea(
         child: SizedBox(
           height: 60,
           child: Row(
             children: List.generate(items.length, (i) {
               final active = index == i;
-              final item   = items[i];
+              final item = items[i];
               return Expanded(
                 child: GestureDetector(
                   onTap: () => onTap(i),
@@ -1394,11 +1555,38 @@ class _BottomNav extends StatelessWidget {
                                     : Colors.transparent,
                                 borderRadius: BorderRadius.circular(10),
                               ),
-                              child: Icon(
-                                active ? item.$1 : item.$2,
-                                color: active
-                                    ? AppTheme.accent : textHint,
-                                size: 22,
+                              child: Stack(
+                                clipBehavior: Clip.none,
+                                children: [
+                                  Icon(
+                                    active ? item.$1 : item.$2,
+                                    color: active ? AppTheme.accent : textHint,
+                                    size: 22,
+                                  ),
+                                  if (i == 2 && cartCount > 0)
+                                    Positioned(
+                                      top: -7,
+                                      right: -9,
+                                      child: Container(
+                                        width: 14,
+                                        height: 14,
+                                        decoration: const BoxDecoration(
+                                          color: AppTheme.accent,
+                                          shape: BoxShape.circle,
+                                        ),
+                                        child: Center(
+                                          child: Text(
+                                            '$cartCount',
+                                            style: const TextStyle(
+                                              color: Colors.black,
+                                              fontSize: 8,
+                                              fontWeight: FontWeight.w900,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                ],
                               ),
                             ),
                             const SizedBox(height: 2),
@@ -1407,30 +1595,13 @@ class _BottomNav extends StatelessWidget {
                               style: TextStyle(
                                 color: active ? AppTheme.accent : textHint,
                                 fontSize: 10,
-                                fontWeight: active
-                                    ? FontWeight.w700 : FontWeight.w400,
+                                fontWeight:
+                                    active ? FontWeight.w700 : FontWeight.w400,
                               ),
                               child: Text(item.$3),
                             ),
                           ],
                         ),
-                        if (i == 2 && cartCount > 0)
-                          Positioned(
-                            top: 8, right: 20,
-                            child: Container(
-                              width: 14, height: 14,
-                              decoration: const BoxDecoration(
-                                  color: AppTheme.accent,
-                                  shape: BoxShape.circle),
-                              child: Center(
-                                child: Text('$cartCount',
-                                    style: const TextStyle(
-                                        color: Colors.black,
-                                        fontSize: 8,
-                                        fontWeight: FontWeight.w900)),
-                              ),
-                            ),
-                          ),
                       ],
                     ),
                   ),
@@ -1452,8 +1623,10 @@ class _SheetBtn extends StatelessWidget {
   final VoidCallback onTap;
 
   const _SheetBtn({
-    required this.icon, required this.label,
-    required this.color, required this.onTap,
+    required this.icon,
+    required this.label,
+    required this.color,
+    required this.onTap,
   });
 
   @override
@@ -1475,9 +1648,7 @@ class _SheetBtn extends StatelessWidget {
             const SizedBox(width: 10),
             Text(label,
                 style: TextStyle(
-                    color: color,
-                    fontWeight: FontWeight.w700,
-                    fontSize: 15)),
+                    color: color, fontWeight: FontWeight.w700, fontSize: 15)),
           ],
         ),
       ),
@@ -1509,7 +1680,10 @@ class _LoadingShimmerState extends State<_LoadingShimmer>
   }
 
   @override
-  void dispose() { _ctrl.dispose(); super.dispose(); }
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -1530,10 +1704,10 @@ class _LoadingShimmerState extends State<_LoadingShimmer>
               Container(
                 height: 148,
                 decoration: BoxDecoration(
-                  color: Color.lerp(widget.bg,
-                      widget.border, 0.3 + 0.3 * _anim.value),
-                  borderRadius: const BorderRadius.vertical(
-                      top: Radius.circular(18)),
+                  color: Color.lerp(
+                      widget.bg, widget.border, 0.3 + 0.3 * _anim.value),
+                  borderRadius:
+                      const BorderRadius.vertical(top: Radius.circular(18)),
                 ),
               ),
               Padding(
@@ -1545,8 +1719,8 @@ class _LoadingShimmerState extends State<_LoadingShimmer>
                     const SizedBox(height: 8),
                     _shimmerBox(100, 12, widget.bg, widget.border, _anim.value),
                     const SizedBox(height: 10),
-                    _shimmerBox(double.infinity, 10,
-                        widget.bg, widget.border, _anim.value),
+                    _shimmerBox(double.infinity, 10, widget.bg, widget.border,
+                        _anim.value),
                   ],
                 ),
               ),
@@ -1557,10 +1731,10 @@ class _LoadingShimmerState extends State<_LoadingShimmer>
     );
   }
 
-  Widget _shimmerBox(double w, double h,
-      Color bg, Color border, double t) {
+  Widget _shimmerBox(double w, double h, Color bg, Color border, double t) {
     return Container(
-      width: w, height: h,
+      width: w,
+      height: h,
       decoration: BoxDecoration(
         color: Color.lerp(bg, border, 0.3 + 0.3 * t),
         borderRadius: BorderRadius.circular(6),

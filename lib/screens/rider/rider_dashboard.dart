@@ -2,12 +2,12 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher_string.dart';
 import '../../theme.dart';
 import '../../widgets/widgets.dart';
 import '../../models/models.dart';
 import '../../services/api_service.dart';
 import '../../services/providers.dart';
-
 
 class RiderDashboard extends StatefulWidget {
   const RiderDashboard({super.key});
@@ -32,7 +32,8 @@ class _RiderDashboardState extends State<RiderDashboard> {
       body: pages[_selectedIndex],
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
-          border: Border(top: BorderSide(color: AppTheme.cardBorder ?? Colors.grey)),
+          border: Border(
+              top: BorderSide(color: AppTheme.cardBorder ?? Colors.grey)),
         ),
         child: BottomNavigationBar(
           currentIndex: _selectedIndex,
@@ -75,20 +76,44 @@ class _AvailableDeliveriesPage extends StatefulWidget {
 }
 
 class _AvailableDeliveriesPageState extends State<_AvailableDeliveriesPage> {
-  List<Order> _orders  = [];
-  bool   _loading      = true;
-  bool   _isOnline     = true;
-  String _error        = '';
+  List<Order> _orders = [];
+  bool _loading = true;
+  bool _isOnline = true;
+
+  Future<void> _openDeliveryMap(Order order) async {
+    final destination =
+        order.deliveryLatitude != null && order.deliveryLongitude != null
+            ? '${order.deliveryLatitude},${order.deliveryLongitude}'
+            : order.deliveryAddress;
+    if (destination == null || destination.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('This order does not have a delivery destination.'),
+      ));
+      return;
+    }
+
+    final url = Uri.https('www.google.com', '/maps/dir/', {
+      'api': '1',
+      'destination': destination,
+    }).toString();
+    if (!await launchUrlString(url, mode: LaunchMode.externalApplication) &&
+        mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('Could not open maps.'),
+      ));
+    }
+  }
+
+  String _error = '';
   Timer? _pollTimer;
-  int    _previousCount = 0;
+  int _previousCount = 0;
 
   @override
   void initState() {
     super.initState();
     _load();
     // Poll every 6 seconds for new available jobs
-    _pollTimer = Timer.periodic(
-        const Duration(seconds: 6), (_) => _poll());
+    _pollTimer = Timer.periodic(const Duration(seconds: 6), (_) => _poll());
   }
 
   @override
@@ -100,7 +125,10 @@ class _AvailableDeliveriesPageState extends State<_AvailableDeliveriesPage> {
   Future<void> _load() async {
     final auth = Provider.of<AuthProvider>(context, listen: false);
     if (auth.token == null) return;
-    setState(() { _loading = true; _error = ''; });
+    setState(() {
+      _loading = true;
+      _error = '';
+    });
     try {
       final response = await ApiService.getAvailableDeliveries(auth.token!);
       if (!mounted) return;
@@ -132,8 +160,8 @@ class _AvailableDeliveriesPageState extends State<_AvailableDeliveriesPage> {
           backgroundColor: AppTheme.accent,
           behavior: SnackBarBehavior.floating,
           margin: const EdgeInsets.all(12),
-          shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           content: const Row(
             children: [
               Icon(Icons.notifications_active_rounded,
@@ -159,10 +187,10 @@ class _AvailableDeliveriesPageState extends State<_AvailableDeliveriesPage> {
     final auth = Provider.of<AuthProvider>(context, listen: false);
     try {
       await ApiService.updateOrderStatus(
-  auth.token!,
-  order.id,
-  'out_for_delivery', // Just pass the raw string values!
-);
+        auth.token!,
+        order.id,
+        'out_for_delivery', // Just pass the raw string values!
+      );
       if (!mounted) return;
       setState(() => _orders.removeWhere((o) => o.id == order.id));
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
@@ -199,8 +227,7 @@ class _AvailableDeliveriesPageState extends State<_AvailableDeliveriesPage> {
                     children: [
                       Text('Available jobs', style: AppText.display),
                       SizedBox(height: 2),
-                      Text('Tap a job to accept it',
-                          style: AppText.body),
+                      Text('Tap a job to accept it', style: AppText.body),
                     ],
                   ),
                   // Online / Offline toggle
@@ -218,14 +245,15 @@ class _AvailableDeliveriesPageState extends State<_AvailableDeliveriesPage> {
                         border: Border.all(
                           color: _isOnline
                               ? AppTheme.success.withValues(alpha: 0.5)
-                              : AppTheme.cardBorder  ?? Colors.grey,
+                              : AppTheme.cardBorder ?? Colors.grey,
                         ),
                       ),
                       child: Row(
                         children: [
                           AnimatedContainer(
                             duration: const Duration(milliseconds: 300),
-                            width: 8, height: 8,
+                            width: 8,
+                            height: 8,
                             decoration: BoxDecoration(
                               color: _isOnline
                                   ? AppTheme.success
@@ -260,12 +288,11 @@ class _AvailableDeliveriesPageState extends State<_AvailableDeliveriesPage> {
                 scrollDirection: Axis.horizontal,
                 padding: const EdgeInsets.symmetric(horizontal: 20),
                 children: [
-                  _statPill(Icons.electric_bike_rounded,
-                      '${_orders.length}', 'Available'),
-                  _statPill(Icons.check_circle_outline_rounded,
-                      '7', 'Completed today'),
-                  _statPill(Icons.payments_outlined,
-                      'GH₵ 84', 'Earned today'),
+                  _statPill(Icons.electric_bike_rounded, '${_orders.length}',
+                      'Available'),
+                  _statPill(Icons.check_circle_outline_rounded, '7',
+                      'Completed today'),
+                  _statPill(Icons.payments_outlined, 'GH₵ 84', 'Earned today'),
                 ],
               ),
             ),
@@ -282,8 +309,8 @@ class _AvailableDeliveriesPageState extends State<_AvailableDeliveriesPage> {
                     )
                   : _loading
                       ? const Center(
-                          child: CircularProgressIndicator(
-                              color: AppTheme.accent))
+                          child:
+                              CircularProgressIndicator(color: AppTheme.accent))
                       : _error.isNotEmpty
                           ? EmptyState(
                               icon: Icons.wifi_off_rounded,
@@ -324,7 +351,7 @@ class _AvailableDeliveriesPageState extends State<_AvailableDeliveriesPage> {
       decoration: BoxDecoration(
         color: AppTheme.card,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppTheme.cardBorder  ?? Colors.grey),
+        border: Border.all(color: AppTheme.cardBorder ?? Colors.grey),
       ),
       child: Row(
         children: [
@@ -363,36 +390,39 @@ class _AvailableDeliveriesPageState extends State<_AvailableDeliveriesPage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-               Row(
-  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-  children: [
-    // Wrap the Order ID and Chat icon together
-    Row(
-      children: [
-        Text('Order #${order.id}', style: AppText.title),
-        const SizedBox(width: 8),
-        IconButton(
-          icon: const Icon(Icons.chat_bubble_outline_rounded, size: 20, color: AppTheme.accent),
-          constraints: const BoxConstraints(), // Keeps the button compact
-          padding: EdgeInsets.zero,
-          onPressed: () {
-            context.push('/order-chat/${order.id}', extra: order);
-          },
-        ),
-      ],
-    ),
-    Text(order.displayTotal,
-        style: AppText.title
-            .copyWith(color: AppTheme.accent)),
-  ],
-),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    // Wrap the Order ID and Chat icon together
+                    Row(
+                      children: [
+                        Text('Order #${order.id}', style: AppText.title),
+                        const SizedBox(width: 8),
+                        IconButton(
+                          icon: const Icon(Icons.chat_bubble_outline_rounded,
+                              size: 20, color: AppTheme.accent),
+                          constraints:
+                              const BoxConstraints(), // Keeps the button compact
+                          padding: EdgeInsets.zero,
+                          onPressed: () {
+                            context.push('/order-chat/${order.id}',
+                                extra: order);
+                          },
+                        ),
+                      ],
+                    ),
+                    Text(order.displayTotal,
+                        style: AppText.title.copyWith(color: AppTheme.accent)),
+                  ],
+                ),
                 const SizedBox(height: 14),
 
                 // Pickup
                 Row(
                   children: [
                     Container(
-                      width: 32, height: 32,
+                      width: 32,
+                      height: 32,
                       decoration: BoxDecoration(
                         color: AppTheme.accent.withValues(alpha: 0.12),
                         shape: BoxShape.circle,
@@ -425,7 +455,8 @@ class _AvailableDeliveriesPageState extends State<_AvailableDeliveriesPage> {
                 Padding(
                   padding: const EdgeInsets.only(left: 15),
                   child: Container(
-                    width: 2, height: 20,
+                    width: 2,
+                    height: 20,
                     color: AppTheme.cardBorder,
                   ),
                 ),
@@ -434,7 +465,8 @@ class _AvailableDeliveriesPageState extends State<_AvailableDeliveriesPage> {
                 Row(
                   children: [
                     Container(
-                      width: 32, height: 32,
+                      width: 32,
+                      height: 32,
                       decoration: BoxDecoration(
                         color: AppTheme.success.withValues(alpha: 0.12),
                         shape: BoxShape.circle,
@@ -452,14 +484,24 @@ class _AvailableDeliveriesPageState extends State<_AvailableDeliveriesPage> {
                                   color: AppTheme.textHint,
                                   fontSize: 11,
                                   fontWeight: FontWeight.w500)),
-                          Text('Customer address',
+                          Text(order.deliveryAddress ?? 'Customer address',
                               style: TextStyle(
                                   color: AppTheme.textPrimary,
                                   fontSize: 14,
-                                  fontWeight: FontWeight.w500)),
+                                  fontWeight: FontWeight.w500),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis),
                         ],
                       ),
                     ),
+                    if (order.deliveryLatitude != null &&
+                        order.deliveryLongitude != null)
+                      IconButton(
+                        tooltip: 'Open delivery location in maps',
+                        onPressed: () => _openDeliveryMap(order),
+                        icon: const Icon(Icons.map_outlined,
+                            color: AppTheme.accent),
+                      ),
                     Container(
                       padding: const EdgeInsets.symmetric(
                           horizontal: 10, vertical: 4),
@@ -516,8 +558,32 @@ class _MyDeliveriesPage extends StatefulWidget {
 
 class _MyDeliveriesPageState extends State<_MyDeliveriesPage> {
   List<Order> _orders = [];
-  bool   _loading = true;
-  String _error   = '';
+  bool _loading = true;
+  String _error = '';
+
+  Future<void> _openDeliveryMap(Order order) async {
+    final destination =
+        order.deliveryLatitude != null && order.deliveryLongitude != null
+            ? '${order.deliveryLatitude},${order.deliveryLongitude}'
+            : order.deliveryAddress;
+    if (destination == null || destination.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('This order does not have a delivery destination.'),
+      ));
+      return;
+    }
+
+    final url = Uri.https('www.google.com', '/maps/dir/', {
+      'api': '1',
+      'destination': destination,
+    }).toString();
+    if (!await launchUrlString(url, mode: LaunchMode.externalApplication) &&
+        mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('Could not open maps.'),
+      ));
+    }
+  }
 
   @override
   void initState() {
@@ -528,7 +594,10 @@ class _MyDeliveriesPageState extends State<_MyDeliveriesPage> {
   Future<void> _load() async {
     final auth = Provider.of<AuthProvider>(context, listen: false);
     if (auth.token == null) return;
-    setState(() { _loading = true; _error = ''; });
+    setState(() {
+      _loading = true;
+      _error = '';
+    });
     try {
       final orders = await ApiService.getMyOrders(auth.token!);
       if (!mounted) return;
@@ -546,15 +615,17 @@ class _MyDeliveriesPageState extends State<_MyDeliveriesPage> {
   Future<void> _markDelivered(Order order) async {
     final auth = Provider.of<AuthProvider>(context, listen: false);
     try {
-    await ApiService.updateOrderStatus(
-  auth.token!,
-  order.id,
-  'delivered',
-);
+      await ApiService.updateOrderStatus(
+        auth.token!,
+        order.id,
+        'delivered',
+      );
       if (!mounted) return;
       setState(() {
         final idx = _orders.indexWhere((o) => o.id == order.id);
-        if (idx != -1) _orders[idx] = _orders[idx].copyWith(status: 'delivered');
+        if (idx != -1) {
+          _orders[idx] = _orders[idx].copyWith(status: 'delivered');
+        }
       });
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
         backgroundColor: AppTheme.success,
@@ -585,8 +656,7 @@ class _MyDeliveriesPageState extends State<_MyDeliveriesPage> {
             Expanded(
               child: _loading
                   ? const Center(
-                      child: CircularProgressIndicator(
-                          color: AppTheme.accent))
+                      child: CircularProgressIndicator(color: AppTheme.accent))
                   : _error.isNotEmpty
                       ? EmptyState(
                           icon: Icons.wifi_off_rounded,
@@ -606,8 +676,8 @@ class _MyDeliveriesPageState extends State<_MyDeliveriesPage> {
                               color: AppTheme.accent,
                               onRefresh: _load,
                               child: ListView.builder(
-                                padding: const EdgeInsets.fromLTRB(
-                                    20, 0, 20, 100),
+                                padding:
+                                    const EdgeInsets.fromLTRB(20, 0, 20, 100),
                                 itemCount: _orders.length,
                                 itemBuilder: (_, i) =>
                                     _myDeliveryCard(_orders[i]),
@@ -632,7 +702,7 @@ class _MyDeliveriesPageState extends State<_MyDeliveriesPage> {
         border: Border.all(
           color: isActive
               ? AppTheme.accent.withValues(alpha: 0.4)
-              : AppTheme.cardBorder  ?? Colors.grey,
+              : AppTheme.cardBorder ?? Colors.grey,
         ),
       ),
       child: Column(
@@ -648,6 +718,34 @@ class _MyDeliveriesPageState extends State<_MyDeliveriesPage> {
           const SizedBox(height: 6),
           Text(order.displayTotal,
               style: AppText.label.copyWith(color: AppTheme.accent)),
+          if (order.deliveryAddress != null ||
+              order.deliveryLatitude != null) ...[
+            const SizedBox(height: 12),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Icon(Icons.location_on_outlined,
+                    color: AppTheme.success, size: 18),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    order.deliveryAddress ?? 'GPS delivery destination',
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: AppText.label,
+                  ),
+                ),
+                IconButton(
+                  tooltip: 'Open delivery destination in maps',
+                  onPressed: () => _openDeliveryMap(order),
+                  icon: const Icon(Icons.directions_outlined,
+                      color: AppTheme.accent),
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                ),
+              ],
+            ),
+          ],
           if (isActive) ...[
             const SizedBox(height: 14),
             SizedBox(
@@ -655,8 +753,8 @@ class _MyDeliveriesPageState extends State<_MyDeliveriesPage> {
               height: 42,
               child: ElevatedButton.icon(
                 onPressed: () => _markDelivered(order),
-                icon: Icon(Icons.check_rounded,
-                    color: AppTheme.black, size: 18),
+                icon:
+                    Icon(Icons.check_rounded, color: AppTheme.black, size: 18),
                 label: const Text('Mark as delivered'),
               ),
             ),
@@ -677,8 +775,7 @@ class _RiderEarningsPage extends StatelessWidget {
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          child: ListView(
             children: [
               const Text('Earnings', style: AppText.display),
               const SizedBox(height: 20),
@@ -690,14 +787,13 @@ class _RiderEarningsPage extends StatelessWidget {
                 decoration: BoxDecoration(
                   color: AppTheme.accentDim,
                   borderRadius: BorderRadius.circular(16),
-                  border: Border.all(
-                      color: AppTheme.accent.withValues(alpha: 0.3)),
+                  border:
+                      Border.all(color: AppTheme.accent.withValues(alpha: 0.3)),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('Total earned today',
-                        style: AppText.label),
+                    const Text('Total earned today', style: AppText.label),
                     const SizedBox(height: 6),
                     const Text('GH₵ 84.00',
                         style: TextStyle(
@@ -825,8 +921,7 @@ class _RiderSettingsPage extends StatelessWidget {
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(auth.name ?? 'Rider',
-                          style: AppText.heading),
+                      Text(auth.name ?? 'Rider', style: AppText.heading),
                       const Text('Active rider',
                           style: TextStyle(
                               color: AppTheme.success,

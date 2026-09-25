@@ -95,7 +95,17 @@ GoRouter createAppRouter(
       ),
       GoRoute(
         path: '/cart',
-        builder: (_, __) => const CartScreen(),
+        builder: (_, state) => CartScreen(
+          paymentReference: state.uri.queryParameters['reference'] ??
+              state.uri.queryParameters['trxref'],
+        ),
+      ),
+      GoRoute(
+        path: '/payment/callback',
+        builder: (_, state) => CartScreen(
+          paymentReference: state.uri.queryParameters['reference'] ??
+              state.uri.queryParameters['trxref'],
+        ),
       ),
       GoRoute(
         path: '/checkout',
@@ -218,6 +228,18 @@ GoRouter createAppRouter(
         return requestedLocation;
       }
       if (location == '/auth/callback') return null;
+
+      final paymentReference = state.uri.queryParameters['reference'] ??
+          state.uri.queryParameters['trxref'];
+      if (paymentReference != null &&
+          paymentReference.isNotEmpty &&
+          location != '/cart' &&
+          location != '/payment/callback') {
+        return Uri(
+          path: '/payment/callback',
+          queryParameters: {'reference': paymentReference},
+        ).toString();
+      }
 
       if (location == '/' && auth.isLoggedIn && auth.isRestaurant) {
         return _homeForRole(auth);

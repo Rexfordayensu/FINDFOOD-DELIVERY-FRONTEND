@@ -26,12 +26,21 @@ void main() {
     statusBarColor: Colors.transparent,
     statusBarIconBrightness: Brightness.light,
   ));
+
+  final authProvider = AuthProvider();
+  final cartProvider = CartProvider();
+  authProvider.addListener(() {
+    if (!authProvider.isLoggedIn && !cartProvider.isEmpty) {
+      cartProvider.clearCart();
+    }
+  });
+
   runApp(
     MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => ThemeProvider()),
-        ChangeNotifierProvider(create: (_) => AuthProvider()),
-        ChangeNotifierProvider(create: (_) => CartProvider()),
+        ChangeNotifierProvider.value(value: authProvider),
+        ChangeNotifierProvider.value(value: cartProvider),
         ChangeNotifierProvider(create: (_) => OtpProvider()),
         ChangeNotifierProvider(create: (_) => OrderPollingProvider()), // NEW
       ],
@@ -68,12 +77,15 @@ class _FindFoodAppState extends State<FindFoodApp> {
 
   Future<void> _handleDeepLink() async {
     final uri = Uri.base;
-    final token = uri.queryParameters['token'] ?? uri.queryParameters['access_token'];
+    final token =
+        uri.queryParameters['token'] ?? uri.queryParameters['access_token'];
     if (token == null || token.isEmpty) return;
 
     final auth = Provider.of<AuthProvider>(context, listen: false);
-    final role = (uri.queryParameters['role'] ?? auth.role ?? 'customer').toLowerCase();
-    final userIdText = uri.queryParameters['user_id'] ?? uri.queryParameters['userId'];
+    final role =
+        (uri.queryParameters['role'] ?? auth.role ?? 'customer').toLowerCase();
+    final userIdText =
+        uri.queryParameters['user_id'] ?? uri.queryParameters['userId'];
     final userId = userIdText == null ? null : int.tryParse(userIdText);
     final email = uri.queryParameters['email'];
 
