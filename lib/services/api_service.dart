@@ -7,7 +7,6 @@ import 'package:flutter/material.dart';
 import 'package:http_parser/http_parser.dart';
 import 'package:flutter/foundation.dart';
 
-
 // Custom exception for email not verified during login
 class EmailNotVerifiedException implements Exception {
   final String message;
@@ -20,9 +19,9 @@ class EmailNotVerifiedException implements Exception {
 class ApiService {
   static const String baseUrl = String.fromEnvironment(
     'API_BASE_URL',
-    defaultValue: kReleaseMode 
+    defaultValue: kReleaseMode
         ? 'https://findfooddelivery-backend.onrender.com' //  Used automatically when built for production/Vercel
-        : 'http://localhost:8000',        // Used automatically when running local development debug sessions
+        : 'http://localhost:8000', // Used automatically when running local development debug sessions
   );
 
   // ── Safe decoder ──────────────────────────────────────────────────────────
@@ -30,6 +29,14 @@ class ApiService {
     final ct = response.headers['content-type'] ?? '';
     if (ct.contains('application/json')) {
       return jsonDecode(response.body) as Map<String, dynamic>;
+    }
+    // Some deployments omit or mislabel the JSON content type. Decode the
+    // body when it is valid JSON so successful auth payloads are not lost.
+    try {
+      final decoded = jsonDecode(response.body);
+      if (decoded is Map<String, dynamic>) return decoded;
+    } on FormatException {
+      // Fall through to the plain-text error below.
     }
     return {
       'detail': response.body.isNotEmpty
@@ -56,10 +63,10 @@ class ApiService {
       response = await http.post(
         Uri.parse('$baseUrl/login'),
         headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-        body: {
-          'username': email.trim(),
+        body: Uri(queryParameters: {
+          'username': email.trim().toLowerCase(),
           'password': password,
-        },
+        }).query,
       );
     } on http.ClientException {
       throw Exception('Unable to connect to the backend. Please try again.');
@@ -84,6 +91,16 @@ class ApiService {
       throw Exception(data['detail'] ?? 'Please check your login details');
     }
     throw Exception(data['detail'] ?? 'Login failed');
+  }
+
+  static Future<Map<String, dynamic>> getCurrentUser(String token) async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/auth/me'),
+      headers: {'Authorization': 'Bearer $token'},
+    );
+    final data = _decode(response);
+    if (response.statusCode == 200) return data;
+    throw Exception(data['detail'] ?? 'Unable to restore your session');
   }
 
   static Future<Map<String, dynamic>> loginWithGoogle() async {
@@ -1050,13 +1067,13 @@ class ApiService {
   }
 
   // Upload restaurant banner using raw image bytes (Flutter Web compatible)
-  static Future<void> uploadRestaurantBanner({
+  static Future<String?> uploadRestaurantBanner({
     required String token,
     required int restaurantId,
     required Uint8List imageBytes,
     required String filename,
   }) async {
-    final url = Uri.parse('$baseUrl/restaurants/$restaurantId/banner');
+    final url = Uri.parse('$baseUrl/restaurants/$restaurantId/upload-banner');
     final request = http.MultipartRequest('POST', url);
 
     // Add Authorization bearer security token header
@@ -1065,7 +1082,7 @@ class ApiService {
     // Attach the raw web image file bytes
     request.files.add(
       http.MultipartFile.fromBytes(
-        'banner',
+        'file',
         imageBytes,
         filename: filename,
       ),
@@ -1074,8 +1091,8 @@ class ApiService {
     final streamedResponse = await request.send();
     final response = await http.Response.fromStream(streamedResponse);
 
-    if (response.statusCode != 200) {
-      throw Exception('Failed to upload restaurant banner image asset');
-    }
+    final data = _decode(response);
+    if (response.statusCode == 200) return data['banner_url']?.toString();
+    throw Exception(data['detail'] ?? 'Failed to upload restaurant banner');
   }
 }

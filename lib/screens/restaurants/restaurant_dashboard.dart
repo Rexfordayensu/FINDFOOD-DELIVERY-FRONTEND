@@ -11,7 +11,8 @@ import '../../services/api_service.dart';
 import '../../services/providers.dart';
 
 class RestaurantDashboard extends StatefulWidget {
-  const RestaurantDashboard({super.key, required this.token, this.initialIndex = 0});
+  const RestaurantDashboard(
+      {super.key, required this.token, this.initialIndex = 0});
 
   final String token;
   final int initialIndex;
@@ -26,6 +27,7 @@ class _RestaurantDashboardState extends State<RestaurantDashboard> {
   bool _checking = true;
   bool _isApproved = false;
   String _restaurantName = '';
+  String? _restaurantBannerUrl;
   int _restaurantId = 0;
   String _checkError = '';
 
@@ -39,12 +41,16 @@ class _RestaurantDashboardState extends State<RestaurantDashboard> {
   Future<void> _checkApproval() async {
     final auth = Provider.of<AuthProvider>(context, listen: false);
     if (auth.token == null) return;
-    setState(() { _checking = true; _checkError = ''; });
+    setState(() {
+      _checking = true;
+      _checkError = '';
+    });
     try {
       final restaurant = await ApiService.getMyRestaurant(auth.token!);
       setState(() {
         _isApproved = restaurant.isApproved;
         _restaurantName = restaurant.name;
+        _restaurantBannerUrl = restaurant.bannerUrl;
         _restaurantId = restaurant.id;
       });
     } catch (e) {
@@ -82,7 +88,8 @@ class _RestaurantDashboardState extends State<RestaurantDashboard> {
                 Text('Couldn\'t verify your account',
                     style: TextStyle(
                         color: AppColors.textPrimary(context),
-                        fontSize: 17, fontWeight: FontWeight.w700)),
+                        fontSize: 17,
+                        fontWeight: FontWeight.w700)),
                 const SizedBox(height: 8),
                 Text(_checkError,
                     style: TextStyle(color: AppColors.textSecondary(context)),
@@ -110,14 +117,17 @@ class _RestaurantDashboardState extends State<RestaurantDashboard> {
       const _OrdersPage(),
       const _MenuManagerPage(),
       const _EarningsPage(),
-      _SettingsPage(restaurantId: _restaurantId)
+      _SettingsPage(
+        restaurantId: _restaurantId,
+        bannerUrl: _restaurantBannerUrl,
+      )
     ];
 
     return Scaffold(
-  body: IndexedStack(
-    index: _selectedIndex,
-    children: pages,
-  ),
+      body: IndexedStack(
+        index: _selectedIndex,
+        children: pages,
+      ),
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
           color: AppColors.surface(context),
@@ -125,7 +135,8 @@ class _RestaurantDashboardState extends State<RestaurantDashboard> {
         ),
         child: BottomNavigationBar(
           currentIndex: _selectedIndex,
-          onTap: (i) => context.go('/restaurant/${['orders', 'menu', 'earnings', 'settings'][i]}'),
+          onTap: (i) => context.go(
+              '/restaurant/${['orders', 'menu', 'earnings', 'settings'][i]}'),
           items: const [
             BottomNavigationBarItem(
                 icon: Icon(Icons.receipt_long_outlined),
@@ -173,7 +184,8 @@ class _PendingApprovalScreen extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Container(
-                width: 96, height: 96,
+                width: 96,
+                height: 96,
                 decoration: BoxDecoration(
                   color: AppTheme.warning.withValues(alpha: 0.12),
                   shape: BoxShape.circle,
@@ -185,7 +197,8 @@ class _PendingApprovalScreen extends StatelessWidget {
               Text('Application under review',
                   style: TextStyle(
                       color: AppColors.textPrimary(context),
-                      fontSize: 22, fontWeight: FontWeight.w800),
+                      fontSize: 22,
+                      fontWeight: FontWeight.w800),
                   textAlign: TextAlign.center),
               const SizedBox(height: 12),
               Text(
@@ -194,7 +207,8 @@ class _PendingApprovalScreen extends StatelessWidget {
                     : 'Your restaurant is waiting for admin approval.',
                 style: TextStyle(
                     color: AppColors.textSecondary(context),
-                    fontSize: 15, height: 1.5),
+                    fontSize: 15,
+                    height: 1.5),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 6),
@@ -203,7 +217,8 @@ class _PendingApprovalScreen extends StatelessWidget {
                 'and earnings — as soon as an admin approves your application.',
                 style: TextStyle(
                     color: AppColors.textHint(context),
-                    fontSize: 13, height: 1.5),
+                    fontSize: 13,
+                    height: 1.5),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 32),
@@ -218,8 +233,12 @@ class _PendingApprovalScreen extends StatelessWidget {
               ),
               const SizedBox(height: 12),
               TextButton(
-                onPressed: () {
-                  Provider.of<AuthProvider>(context, listen: false).logout();
+                onPressed: () async {
+                  if (!await confirmLogout(context) || !context.mounted) return;
+                  await Provider.of<AuthProvider>(context, listen: false)
+                      .logout();
+                  if (!context.mounted) return;
+                  showLogoutSuccess(context);
                   context.go('/');
                 },
                 child: Text('Sign out',
@@ -243,9 +262,9 @@ class _OrdersPage extends StatefulWidget {
 
 class _OrdersPageState extends State<_OrdersPage> {
   List<Order> _orders = [];
-  bool   _loading = true;
-  String _error   = '';
-  String _filter  = 'all';
+  bool _loading = true;
+  String _error = '';
+  String _filter = 'all';
   Timer? _pollTimer;
 
   final _filters = ['all', 'pending', 'preparing', 'ready', 'delivered'];
@@ -267,7 +286,10 @@ class _OrdersPageState extends State<_OrdersPage> {
   Future<void> _load() async {
     final auth = Provider.of<AuthProvider>(context, listen: false);
     if (auth.token == null) return;
-    setState(() { _loading = true; _error = ''; });
+    setState(() {
+      _loading = true;
+      _error = '';
+    });
     try {
       final orders = await ApiService.getMyOrders(auth.token!);
       setState(() => _orders = orders);
@@ -284,7 +306,7 @@ class _OrdersPageState extends State<_OrdersPage> {
     try {
       final orders = await ApiService.getMyOrders(auth.token!);
       final prevCount = _orders.where((o) => o.status == 'pending').length;
-      final newCount  = orders.where((o) => o.status == 'pending').length;
+      final newCount = orders.where((o) => o.status == 'pending').length;
       setState(() => _orders = orders);
       // Notify if new pending orders arrived
       if (newCount > prevCount && mounted) {
@@ -306,8 +328,8 @@ class _OrdersPageState extends State<_OrdersPage> {
         const SizedBox(width: 10),
         Text(
           '$count new order${count > 1 ? 's' : ''} received!',
-          style: const TextStyle(
-              color: Colors.black, fontWeight: FontWeight.w700),
+          style:
+              const TextStyle(color: Colors.black, fontWeight: FontWeight.w700),
         ),
       ]),
     ));
@@ -344,13 +366,14 @@ class _OrdersPageState extends State<_OrdersPage> {
     }
   }
 
-  List<Order> get _filtered =>
-      _filter == 'all' ? _orders : _orders.where((o) => o.status == _filter).toList();
+  List<Order> get _filtered => _filter == 'all'
+      ? _orders
+      : _orders.where((o) => o.status == _filter).toList();
 
   @override
   Widget build(BuildContext context) {
-    final bg     = AppColors.bg(context);
-    final textPri= AppColors.textPrimary(context);
+    final bg = AppColors.bg(context);
+    final textPri = AppColors.textPrimary(context);
 
     return Scaffold(
       backgroundColor: bg,
@@ -381,8 +404,8 @@ class _OrdersPageState extends State<_OrdersPage> {
                   ),
                   // Live indicator
                   Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 12, vertical: 6),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                     decoration: BoxDecoration(
                       color: AppTheme.success.withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(20),
@@ -410,8 +433,8 @@ class _OrdersPageState extends State<_OrdersPage> {
                         borderRadius: BorderRadius.circular(10),
                         border: Border.all(color: AppColors.border(context)),
                       ),
-                      child: Icon(Icons.refresh_rounded,
-                          color: textPri, size: 18),
+                      child:
+                          Icon(Icons.refresh_rounded, color: textPri, size: 18),
                     ),
                   ),
                 ],
@@ -422,20 +445,22 @@ class _OrdersPageState extends State<_OrdersPage> {
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
               child: Row(children: [
-                _StatChip('Pending',
+                _StatChip(
+                    'Pending',
                     '${_orders.where((o) => o.status == 'pending').length}',
                     AppTheme.accent),
                 const SizedBox(width: 8),
-                _StatChip('Preparing',
+                _StatChip(
+                    'Preparing',
                     '${_orders.where((o) => o.status == 'preparing').length}',
                     AppTheme.warning),
                 const SizedBox(width: 8),
-                _StatChip('Ready',
+                _StatChip(
+                    'Ready',
                     '${_orders.where((o) => o.status == 'ready').length}',
                     AppTheme.success),
                 const SizedBox(width: 8),
-                _StatChip('Today',
-                    '${_orders.length}',
+                _StatChip('Today', '${_orders.length}',
                     AppColors.textSecondary(context)),
               ]),
             ),
@@ -445,8 +470,8 @@ class _OrdersPageState extends State<_OrdersPage> {
               height: 46,
               child: ListView.separated(
                 scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 20, vertical: 8),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
                 itemCount: _filters.length,
                 separatorBuilder: (_, __) => const SizedBox(width: 8),
                 itemBuilder: (_, i) {
@@ -474,9 +499,8 @@ class _OrdersPageState extends State<_OrdersPage> {
                           color: active
                               ? Colors.black
                               : AppColors.textSecondary(context),
-                          fontWeight: active
-                              ? FontWeight.w700
-                              : FontWeight.w400,
+                          fontWeight:
+                              active ? FontWeight.w700 : FontWeight.w400,
                           fontSize: 13,
                         ),
                       ),
@@ -490,8 +514,7 @@ class _OrdersPageState extends State<_OrdersPage> {
             Expanded(
               child: _loading
                   ? const Center(
-                      child: CircularProgressIndicator(
-                          color: AppTheme.accent))
+                      child: CircularProgressIndicator(color: AppTheme.accent))
                   : _error.isNotEmpty
                       ? EmptyState(
                           icon: Icons.wifi_off_rounded,
@@ -514,14 +537,13 @@ class _OrdersPageState extends State<_OrdersPage> {
                               color: AppTheme.accent,
                               onRefresh: _load,
                               child: ListView.builder(
-                                padding: const EdgeInsets.fromLTRB(
-                                    20, 4, 20, 100),
+                                padding:
+                                    const EdgeInsets.fromLTRB(20, 4, 20, 100),
                                 itemCount: _filtered.length,
-                                itemBuilder: (_, i) =>
-                                    _OrderCard(
-                                      order: _filtered[i],
-                                      onUpdateStatus: _updateStatus,
-                                    ),
+                                itemBuilder: (_, i) => _OrderCard(
+                                  order: _filtered[i],
+                                  onUpdateStatus: _updateStatus,
+                                ),
                               ),
                             ),
             ),
@@ -541,22 +563,22 @@ class _OrderCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isPending   = order.status == 'pending';
+    final isPending = order.status == 'pending';
     final isPreparing = order.status == 'preparing';
-    final isReady     = order.status == 'ready';
-    final isDone      = order.status == 'delivered';
+    final isReady = order.status == 'ready';
+    final isDone = order.status == 'delivered';
 
     String? actionLabel;
     String? nextStatus;
-    Color?  actionColor;
+    Color? actionColor;
 
     if (isPending) {
       actionLabel = '🍳  Start preparing';
-      nextStatus  = 'preparing';
+      nextStatus = 'preparing';
       actionColor = AppTheme.warning;
     } else if (isPreparing) {
       actionLabel = '✅  Mark ready for pickup';
-      nextStatus  = 'ready';
+      nextStatus = 'ready';
       actionColor = AppTheme.success;
     }
 
@@ -573,9 +595,12 @@ class _OrderCard extends StatelessWidget {
           width: isPending ? 1.5 : 1,
         ),
         boxShadow: isPending
-            ? [BoxShadow(
-                color: AppTheme.accent.withValues(alpha: 0.1),
-                blurRadius: 12, offset: const Offset(0, 4))]
+            ? [
+                BoxShadow(
+                    color: AppTheme.accent.withValues(alpha: 0.1),
+                    blurRadius: 12,
+                    offset: const Offset(0, 4))
+              ]
             : [],
       ),
       child: Column(
@@ -592,11 +617,11 @@ class _OrderCard extends StatelessWidget {
                     Row(children: [
                       if (isPending)
                         Container(
-                          width: 8, height: 8,
+                          width: 8,
+                          height: 8,
                           margin: const EdgeInsets.only(right: 8),
                           decoration: const BoxDecoration(
-                              color: AppTheme.accent,
-                              shape: BoxShape.circle),
+                              color: AppTheme.accent, shape: BoxShape.circle),
                         ),
                       Text('Order #${order.id}',
                           style: TextStyle(
@@ -618,7 +643,8 @@ class _OrderCard extends StatelessWidget {
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: Icon(Icons.chat_bubble_outline_rounded,
-                              size: 15, color: AppColors.textSecondary(context)),
+                              size: 15,
+                              color: AppColors.textSecondary(context)),
                         ),
                       ),
                       StatusBadge(status: order.status),
@@ -636,8 +662,7 @@ class _OrderCard extends StatelessWidget {
                             fontWeight: FontWeight.w800)),
                     Row(children: [
                       Icon(Icons.access_time_rounded,
-                          size: 13,
-                          color: AppColors.textHint(context)),
+                          size: 13, color: AppColors.textHint(context)),
                       const SizedBox(width: 4),
                       Text('Just now',
                           style: TextStyle(
@@ -743,16 +768,14 @@ class _OrderCard extends StatelessWidget {
           ] else if (isDone) ...[
             Divider(height: 1, color: AppColors.border(context)),
             Padding(
-              padding: const EdgeInsets.symmetric(
-                  horizontal: 16, vertical: 10),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
               child: Row(children: [
                 const Icon(Icons.check_circle_rounded,
                     color: AppTheme.success, size: 16),
                 const SizedBox(width: 8),
                 Text('Delivered successfully',
                     style: TextStyle(
-                        color: AppColors.textHint(context),
-                        fontSize: 12)),
+                        color: AppColors.textHint(context), fontSize: 12)),
               ]),
             ),
           ],
@@ -766,8 +789,7 @@ class _OrderCard extends StatelessWidget {
       context: context,
       builder: (_) => AlertDialog(
         backgroundColor: AppColors.card(context),
-        shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: Text('Reject order #${order.id}?',
             style: TextStyle(
                 color: AppColors.textPrimary(context),
@@ -789,8 +811,7 @@ class _OrderCard extends StatelessWidget {
             },
             child: const Text('Reject',
                 style: TextStyle(
-                    color: AppTheme.danger,
-                    fontWeight: FontWeight.w700)),
+                    color: AppTheme.danger, fontWeight: FontWeight.w700)),
           ),
         ],
       ),
@@ -815,19 +836,23 @@ class _PulseDotState extends State<_PulseDot>
     _ctrl = AnimationController(
         vsync: this, duration: const Duration(milliseconds: 900))
       ..repeat(reverse: true);
-    _anim = Tween(begin: 0.4, end: 1.0).animate(
-        CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut));
+    _anim = Tween(begin: 0.4, end: 1.0)
+        .animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut));
   }
 
   @override
-  void dispose() { _ctrl.dispose(); super.dispose(); }
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     return AnimatedBuilder(
       animation: _anim,
       builder: (_, __) => Container(
-        width: 7, height: 7,
+        width: 7,
+        height: 7,
         decoration: BoxDecoration(
           color: AppTheme.success.withValues(alpha: _anim.value),
           shape: BoxShape.circle,
@@ -857,9 +882,7 @@ class _StatChip extends StatelessWidget {
             style: TextStyle(
                 color: color, fontSize: 16, fontWeight: FontWeight.w800)),
         Text(label,
-            style: TextStyle(
-                color: AppColors.textHint(context),
-                fontSize: 10)),
+            style: TextStyle(color: AppColors.textHint(context), fontSize: 10)),
       ]),
     );
   }
@@ -874,18 +897,24 @@ class _MenuManagerPage extends StatefulWidget {
 
 class _MenuManagerPageState extends State<_MenuManagerPage> {
   List<MenuItem> _items = [];
-  bool   _loading  = true;
-  String _error    = '';
-  int?   _restaurantId; // Fetched dynamically — no more hardcoding!
+  bool _loading = true;
+  String _error = '';
+  int? _restaurantId; // Fetched dynamically — no more hardcoding!
   final Set<int> _processingIds = {};
 
   @override
-  void initState() { super.initState(); _load(); }
+  void initState() {
+    super.initState();
+    _load();
+  }
 
   Future<void> _load() async {
     final auth = Provider.of<AuthProvider>(context, listen: false);
     if (auth.token == null) return;
-    setState(() { _loading = true; _error = ''; });
+    setState(() {
+      _loading = true;
+      _error = '';
+    });
     try {
       // Step 1: resolve the logged-in owner's actual restaurant
       final restaurant = await ApiService.getMyRestaurant(auth.token!);
@@ -903,11 +932,11 @@ class _MenuManagerPageState extends State<_MenuManagerPage> {
 
   // ── ADD ───────────────────────────────────────────────────────────────────
   void _showAddSheet() {
-    final auth     = Provider.of<AuthProvider>(context, listen: false);
+    final auth = Provider.of<AuthProvider>(context, listen: false);
     final nameCtrl = TextEditingController();
     final descCtrl = TextEditingController();
-    final priceCtrl= TextEditingController();
-    bool saving    = false;
+    final priceCtrl = TextEditingController();
+    bool saving = false;
     Uint8List? pickedBytes;
     String? pickedFilename;
 
@@ -927,7 +956,8 @@ class _MenuManagerPageState extends State<_MenuManagerPage> {
             children: [
               Center(
                 child: Container(
-                  width: 40, height: 4,
+                  width: 40,
+                  height: 4,
                   decoration: BoxDecoration(
                     color: AppColors.border(ctx),
                     borderRadius: BorderRadius.circular(2),
@@ -938,7 +968,8 @@ class _MenuManagerPageState extends State<_MenuManagerPage> {
               Text('Add menu item',
                   style: TextStyle(
                       color: AppColors.textPrimary(ctx),
-                      fontSize: 18, fontWeight: FontWeight.w800)),
+                      fontSize: 18,
+                      fontWeight: FontWeight.w800)),
               const SizedBox(height: 16),
 
               // ── Photo picker ──────────────────────────────
@@ -968,8 +999,8 @@ class _MenuManagerPageState extends State<_MenuManagerPage> {
                   child: pickedBytes != null
                       ? ClipRRect(
                           borderRadius: BorderRadius.circular(14),
-                          child: Image.memory(pickedBytes!, fit: BoxFit.cover,
-                              width: double.infinity),
+                          child: Image.memory(pickedBytes!,
+                              fit: BoxFit.cover, width: double.infinity),
                         )
                       : Column(
                           mainAxisAlignment: MainAxisAlignment.center,
@@ -979,7 +1010,8 @@ class _MenuManagerPageState extends State<_MenuManagerPage> {
                             const SizedBox(height: 8),
                             Text('Tap to add a food photo',
                                 style: TextStyle(
-                                    color: AppColors.textHint(ctx), fontSize: 13)),
+                                    color: AppColors.textHint(ctx),
+                                    fontSize: 13)),
                           ],
                         ),
                 ),
@@ -987,12 +1019,15 @@ class _MenuManagerPageState extends State<_MenuManagerPage> {
               const SizedBox(height: 16),
 
               AppTextField(
-                  controller: nameCtrl, hint: 'Item name',
+                  controller: nameCtrl,
+                  hint: 'Item name',
                   prefixIcon: Icons.fastfood_outlined),
               const SizedBox(height: 12),
               AppTextField(
-                  controller: descCtrl, hint: 'Description (optional)',
-                  prefixIcon: Icons.notes_rounded, maxLines: 2),
+                  controller: descCtrl,
+                  hint: 'Description (optional)',
+                  prefixIcon: Icons.notes_rounded,
+                  maxLines: 2),
               const SizedBox(height: 12),
               AppTextField(
                   controller: priceCtrl,
@@ -1018,7 +1053,8 @@ class _MenuManagerPageState extends State<_MenuManagerPage> {
                       restaurantId: _restaurantId!,
                       name: nameCtrl.text.trim(),
                       description: descCtrl.text.trim().isEmpty
-                          ? null : descCtrl.text.trim(),
+                          ? null
+                          : descCtrl.text.trim(),
                       price: int.parse(priceCtrl.text.trim()),
                     );
 
@@ -1064,11 +1100,11 @@ class _MenuManagerPageState extends State<_MenuManagerPage> {
 
   // ── EDIT ──────────────────────────────────────────────────────────────────
   void _showEditSheet(MenuItem item) {
-    final auth     = Provider.of<AuthProvider>(context, listen: false);
+    final auth = Provider.of<AuthProvider>(context, listen: false);
     final nameCtrl = TextEditingController(text: item.name);
     final descCtrl = TextEditingController(text: item.description ?? '');
-    final priceCtrl= TextEditingController(text: item.price.toString());
-    bool saving    = false;
+    final priceCtrl = TextEditingController(text: item.price.toString());
+    bool saving = false;
     bool removingImage = false;
     Uint8List? pickedBytes;
     String? pickedFilename;
@@ -1090,7 +1126,8 @@ class _MenuManagerPageState extends State<_MenuManagerPage> {
             children: [
               Center(
                 child: Container(
-                  width: 40, height: 4,
+                  width: 40,
+                  height: 4,
                   decoration: BoxDecoration(
                     color: AppColors.border(ctx),
                     borderRadius: BorderRadius.circular(2),
@@ -1103,7 +1140,8 @@ class _MenuManagerPageState extends State<_MenuManagerPage> {
                   Text('Edit menu item',
                       style: TextStyle(
                           color: AppColors.textPrimary(ctx),
-                          fontSize: 18, fontWeight: FontWeight.w800)),
+                          fontSize: 18,
+                          fontWeight: FontWeight.w800)),
                   const Spacer(),
                   GestureDetector(
                     onTap: () async {
@@ -1173,7 +1211,8 @@ class _MenuManagerPageState extends State<_MenuManagerPage> {
                                   mainAxisAlignment: MainAxisAlignment.center,
                                   children: [
                                     Icon(Icons.add_a_photo_outlined,
-                                        color: AppColors.textHint(ctx), size: 32),
+                                        color: AppColors.textHint(ctx),
+                                        size: 32),
                                     const SizedBox(height: 8),
                                     Text('Tap to add a food photo',
                                         style: TextStyle(
@@ -1187,7 +1226,8 @@ class _MenuManagerPageState extends State<_MenuManagerPage> {
                   if (pickedBytes != null ||
                       (currentImageUrl != null && !removingImage))
                     Positioned(
-                      top: 8, right: 8,
+                      top: 8,
+                      right: 8,
                       child: GestureDetector(
                         onTap: () {
                           set(() {
@@ -1212,12 +1252,15 @@ class _MenuManagerPageState extends State<_MenuManagerPage> {
               const SizedBox(height: 16),
 
               AppTextField(
-                  controller: nameCtrl, hint: 'Item name',
+                  controller: nameCtrl,
+                  hint: 'Item name',
                   prefixIcon: Icons.fastfood_outlined),
               const SizedBox(height: 12),
               AppTextField(
-                  controller: descCtrl, hint: 'Description (optional)',
-                  prefixIcon: Icons.notes_rounded, maxLines: 2),
+                  controller: descCtrl,
+                  hint: 'Description (optional)',
+                  prefixIcon: Icons.notes_rounded,
+                  maxLines: 2),
               const SizedBox(height: 12),
               AppTextField(
                   controller: priceCtrl,
@@ -1243,7 +1286,8 @@ class _MenuManagerPageState extends State<_MenuManagerPage> {
                       itemId: item.id,
                       name: nameCtrl.text.trim(),
                       description: descCtrl.text.trim().isEmpty
-                          ? null : descCtrl.text.trim(),
+                          ? null
+                          : descCtrl.text.trim(),
                       price: int.tryParse(priceCtrl.text.trim()) ?? 0,
                     );
 
@@ -1319,7 +1363,8 @@ class _MenuManagerPageState extends State<_MenuManagerPage> {
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
             child: const Text('Delete',
-                style: TextStyle(color: AppTheme.danger, fontWeight: FontWeight.w700)),
+                style: TextStyle(
+                    color: AppTheme.danger, fontWeight: FontWeight.w700)),
           ),
         ],
       ),
@@ -1336,8 +1381,7 @@ class _MenuManagerPageState extends State<_MenuManagerPage> {
       if (!mounted) return;
       messenger?.showSnackBar(const SnackBar(
         backgroundColor: AppTheme.danger,
-        content: Text('Item deleted',
-            style: TextStyle(color: Colors.white)),
+        content: Text('Item deleted', style: TextStyle(color: Colors.white)),
       ));
     } catch (e) {
       if (!mounted) return;
@@ -1393,7 +1437,8 @@ class _MenuManagerPageState extends State<_MenuManagerPage> {
                   Text('Menu',
                       style: TextStyle(
                           color: AppColors.textPrimary(context),
-                          fontSize: 24, fontWeight: FontWeight.w800)),
+                          fontSize: 24,
+                          fontWeight: FontWeight.w800)),
                   GestureDetector(
                     onTap: _showAddSheet,
                     child: Container(
@@ -1409,7 +1454,8 @@ class _MenuManagerPageState extends State<_MenuManagerPage> {
                         Text('Add item',
                             style: TextStyle(
                                 color: Colors.black,
-                                fontWeight: FontWeight.w700, fontSize: 13)),
+                                fontWeight: FontWeight.w700,
+                                fontSize: 13)),
                       ]),
                     ),
                   ),
@@ -1418,7 +1464,8 @@ class _MenuManagerPageState extends State<_MenuManagerPage> {
             ),
             Expanded(
               child: _loading
-                  ? const Center(child: CircularProgressIndicator(color: AppTheme.accent))
+                  ? const Center(
+                      child: CircularProgressIndicator(color: AppTheme.accent))
                   : _error.isNotEmpty
                       ? EmptyState(
                           icon: Icons.wifi_off_rounded,
@@ -1437,11 +1484,13 @@ class _MenuManagerPageState extends State<_MenuManagerPage> {
                               color: AppTheme.accent,
                               onRefresh: _load,
                               child: ListView.builder(
-                                padding: const EdgeInsets.fromLTRB(20, 0, 20, 100),
+                                padding:
+                                    const EdgeInsets.fromLTRB(20, 0, 20, 100),
                                 itemCount: _items.length,
                                 itemBuilder: (_, i) {
                                   final m = _items[i];
-                                  final processing = _processingIds.contains(m.id);
+                                  final processing =
+                                      _processingIds.contains(m.id);
                                   return _ManagedMenuItemCard(
                                     item: m,
                                     processing: processing,
@@ -1494,20 +1543,21 @@ class _ManagedMenuItemCard extends StatelessWidget {
           ClipRRect(
             borderRadius: BorderRadius.circular(10),
             child: Container(
-              width: 56, height: 56,
+              width: 56,
+              height: 56,
               color: AppColors.surface(context),
               child: item.imageUrl != null
                   ? Image.network(
                       item.fullImageUrl(ApiService.baseUrl)!,
                       fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) => Icon(
-                          Icons.fastfood_rounded,
+                      errorBuilder: (_, __, ___) => Icon(Icons.fastfood_rounded,
                           color: AppColors.textHint(context), size: 24),
                       loadingBuilder: (_, child, progress) {
                         if (progress == null) return child;
                         return const Center(
                           child: SizedBox(
-                            width: 18, height: 18,
+                            width: 18,
+                            height: 18,
                             child: CircularProgressIndicator(
                                 color: AppTheme.accent, strokeWidth: 2),
                           ),
@@ -1526,20 +1576,24 @@ class _ManagedMenuItemCard extends StatelessWidget {
                 Text(item.name,
                     style: TextStyle(
                         color: AppColors.textPrimary(context),
-                        fontSize: 14, fontWeight: FontWeight.w700)),
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700)),
                 if (item.description != null && item.description!.isNotEmpty)
                   Padding(
                     padding: const EdgeInsets.only(top: 2),
                     child: Text(item.description!,
                         style: TextStyle(
-                            color: AppColors.textSecondary(context), fontSize: 12),
-                        maxLines: 1, overflow: TextOverflow.ellipsis),
+                            color: AppColors.textSecondary(context),
+                            fontSize: 12),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis),
                   ),
                 const SizedBox(height: 4),
                 Text(item.displayPrice,
                     style: const TextStyle(
                         color: AppTheme.accent,
-                        fontSize: 13, fontWeight: FontWeight.w700)),
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700)),
               ],
             ),
           ),
@@ -1551,17 +1605,20 @@ class _ManagedMenuItemCard extends StatelessWidget {
                 onTap: processing ? null : onToggle,
                 child: processing
                     ? const SizedBox(
-                        width: 36, height: 20,
+                        width: 36,
+                        height: 20,
                         child: Center(
                           child: SizedBox(
-                            width: 14, height: 14,
+                            width: 14,
+                            height: 14,
                             child: CircularProgressIndicator(
                                 color: AppTheme.accent, strokeWidth: 2),
                           ),
                         ),
                       )
                     : Container(
-                        width: 36, height: 20,
+                        width: 36,
+                        height: 20,
                         padding: const EdgeInsets.all(2),
                         decoration: BoxDecoration(
                           color: item.isAvailable
@@ -1575,7 +1632,8 @@ class _ManagedMenuItemCard extends StatelessWidget {
                               ? Alignment.centerRight
                               : Alignment.centerLeft,
                           child: Container(
-                            width: 16, height: 16,
+                            width: 16,
+                            height: 16,
                             decoration: const BoxDecoration(
                                 color: Colors.white, shape: BoxShape.circle),
                           ),
@@ -1634,12 +1692,18 @@ class _EarningsPageState extends State<_EarningsPage> {
   String _error = '';
 
   @override
-  void initState() { super.initState(); _load(); }
+  void initState() {
+    super.initState();
+    _load();
+  }
 
   Future<void> _load() async {
     final auth = Provider.of<AuthProvider>(context, listen: false);
     if (auth.token == null) return;
-    setState(() { _loading = true; _error = ''; });
+    setState(() {
+      _loading = true;
+      _error = '';
+    });
     try {
       final data = await ApiService.getRestaurantAnalytics(auth.token!);
       setState(() => _data = data);
@@ -1672,7 +1736,8 @@ class _EarningsPageState extends State<_EarningsPage> {
                   children: [
                     Text('Earnings & Analytics',
                         style: TextStyle(
-                            color: textPri, fontSize: 22,
+                            color: textPri,
+                            fontSize: 22,
                             fontWeight: FontWeight.w800)),
                     IconButton(
                       icon: const Icon(Icons.refresh_rounded,
@@ -1682,12 +1747,12 @@ class _EarningsPageState extends State<_EarningsPage> {
                   ],
                 ),
                 const SizedBox(height: 16),
-
                 if (_loading)
                   const Padding(
                     padding: EdgeInsets.symmetric(vertical: 60),
-                    child: Center(child: CircularProgressIndicator(
-                        color: AppTheme.accent)),
+                    child: Center(
+                        child:
+                            CircularProgressIndicator(color: AppTheme.accent)),
                   )
                 else if (_error.isNotEmpty)
                   Padding(
@@ -1728,8 +1793,7 @@ class _EarningsPageState extends State<_EarningsPage> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text('Total revenue',
-                            style: TextStyle(
-                                color: textSec, fontSize: 13)),
+                            style: TextStyle(color: textSec, fontSize: 13)),
                         const SizedBox(height: 6),
                         Text(
                           'GH₵ ${((_data?['total_revenue'] ?? 0) / 100).toStringAsFixed(2)}',
@@ -1760,13 +1824,17 @@ class _EarningsPageState extends State<_EarningsPage> {
                   Row(
                     children: [
                       Expanded(
-                        child: _miniStat(context, 'Total orders',
+                        child: _miniStat(
+                            context,
+                            'Total orders',
                             '${_data?['total_orders'] ?? 0}',
                             Icons.shopping_bag_outlined),
                       ),
                       const SizedBox(width: 12),
                       Expanded(
-                        child: _miniStat(context, 'Avg order value',
+                        child: _miniStat(
+                            context,
+                            'Avg order value',
                             'GH₵ ${((_data?['avg_order_value'] ?? 0) / 100).toStringAsFixed(2)}',
                             Icons.trending_up_rounded),
                       ),
@@ -1777,7 +1845,8 @@ class _EarningsPageState extends State<_EarningsPage> {
                   // ── 7-day revenue bar chart ──────────────────────
                   Text('Last 7 days',
                       style: TextStyle(
-                          color: textPri, fontSize: 16,
+                          color: textPri,
+                          fontSize: 16,
                           fontWeight: FontWeight.w700)),
                   const SizedBox(height: 14),
                   _RevenueBarChart(
@@ -1790,7 +1859,8 @@ class _EarningsPageState extends State<_EarningsPage> {
                   // ── Top items ─────────────────────────────────
                   Text('Best sellers',
                       style: TextStyle(
-                          color: textPri, fontSize: 16,
+                          color: textPri,
+                          fontSize: 16,
                           fontWeight: FontWeight.w700)),
                   const SizedBox(height: 14),
                   if ((_data?['top_items'] as List?)?.isEmpty ?? true)
@@ -1804,7 +1874,8 @@ class _EarningsPageState extends State<_EarningsPage> {
                       (_data!['top_items'] as List).length,
                       (i) {
                         final item = _data!['top_items'][i];
-                        final maxCount = (_data!['top_items'][0]['count'] as int);
+                        final maxCount =
+                            (_data!['top_items'][0]['count'] as int);
                         final ratio = maxCount > 0
                             ? (item['count'] as int) / maxCount
                             : 0.0;
@@ -1821,7 +1892,8 @@ class _EarningsPageState extends State<_EarningsPage> {
     );
   }
 
-  Widget _miniStat(BuildContext ctx, String label, String value, IconData icon) {
+  Widget _miniStat(
+      BuildContext ctx, String label, String value, IconData icon) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -1837,11 +1909,11 @@ class _EarningsPageState extends State<_EarningsPage> {
           Text(value,
               style: TextStyle(
                   color: AppColors.textPrimary(ctx),
-                  fontSize: 17, fontWeight: FontWeight.w800)),
+                  fontSize: 17,
+                  fontWeight: FontWeight.w800)),
           const SizedBox(height: 2),
           Text(label,
-              style: TextStyle(
-                  color: AppColors.textHint(ctx), fontSize: 11)),
+              style: TextStyle(color: AppColors.textHint(ctx), fontSize: 11)),
         ],
       ),
     );
@@ -1860,7 +1932,8 @@ class _EarningsPageState extends State<_EarningsPage> {
       child: Row(
         children: [
           Container(
-            width: 28, height: 28,
+            width: 28,
+            height: 28,
             decoration: BoxDecoration(
               color: rank == 1
                   ? AppTheme.accent.withValues(alpha: 0.15)
@@ -1870,10 +1943,10 @@ class _EarningsPageState extends State<_EarningsPage> {
             child: Center(
               child: Text('$rank',
                   style: TextStyle(
-                      color: rank == 1
-                          ? AppTheme.accent
-                          : AppColors.textHint(ctx),
-                      fontWeight: FontWeight.w800, fontSize: 12)),
+                      color:
+                          rank == 1 ? AppTheme.accent : AppColors.textHint(ctx),
+                      fontWeight: FontWeight.w800,
+                      fontSize: 12)),
             ),
           ),
           const SizedBox(width: 12),
@@ -1884,7 +1957,8 @@ class _EarningsPageState extends State<_EarningsPage> {
                 Text(name,
                     style: TextStyle(
                         color: AppColors.textPrimary(ctx),
-                        fontWeight: FontWeight.w600, fontSize: 13)),
+                        fontWeight: FontWeight.w600,
+                        fontSize: 13)),
                 const SizedBox(height: 4),
                 ClipRRect(
                   borderRadius: BorderRadius.circular(4),
@@ -1900,8 +1974,8 @@ class _EarningsPageState extends State<_EarningsPage> {
           ),
           const SizedBox(width: 12),
           Text('$count sold',
-              style: TextStyle(
-                  color: AppColors.textSecondary(ctx), fontSize: 12)),
+              style:
+                  TextStyle(color: AppColors.textSecondary(ctx), fontSize: 12)),
         ],
       ),
     );
@@ -1945,7 +2019,7 @@ class _RevenueBarChart extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.end,
         children: data.map((d) {
           final revenue = (d['revenue'] as num).toDouble();
-          final ratio   = maxRevenue > 0 ? revenue / maxRevenue : 0.0;
+          final ratio = maxRevenue > 0 ? revenue / maxRevenue : 0.0;
           return Expanded(
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 4),
@@ -1981,53 +2055,208 @@ class _RevenueBarChart extends StatelessWidget {
 // ─── SETTINGS PAGE ────────────────────────────────────────────────────────────
 class _SettingsPage extends StatefulWidget {
   final int restaurantId;
-  const _SettingsPage({required this.restaurantId});
+  final String? bannerUrl;
+  const _SettingsPage({required this.restaurantId, this.bannerUrl});
   @override
   State<_SettingsPage> createState() => _SettingsPageState();
 }
 
 class _SettingsPageState extends State<_SettingsPage> {
-
   bool _isOpen = true;
+  Uint8List? _pendingBannerBytes;
+  String? _pendingBannerFilename;
+  String? _bannerUrl;
+  bool _isUploadingBanner = false;
 
-Future<void> _uploadRestaurantBanner({
-  required String token,
-  required int restaurantId,
-}) async {
-  final picker = ImagePicker();
-  final picked = await picker.pickImage(
-    source: ImageSource.gallery,
-    imageQuality: 85,
-  );
+  @override
+  void initState() {
+    super.initState();
+    _bannerUrl = widget.bannerUrl;
+  }
 
-  if (picked == null) return;
+  Future<void> _chooseBanner() async {
+    final picked = await ImagePicker().pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 100,
+    );
+    if (picked == null) return;
 
-  try {
+    final filename = picked.name.toLowerCase();
+    final isSupported = filename.endsWith('.jpg') ||
+        filename.endsWith('.jpeg') ||
+        filename.endsWith('.png') ||
+        filename.endsWith('.webp');
+    if (!isSupported) {
+      _showBannerMessage('Choose a JPEG, PNG, or WebP image.', isError: true);
+      return;
+    }
+
     final bytes = await picked.readAsBytes();
-    await ApiService.uploadRestaurantBanner(
-      token: token,
-      restaurantId: restaurantId,
-      imageBytes: bytes,
-      filename: picked.name,
-    );
+    if (bytes.length > 5 * 1024 * 1024) {
+      _showBannerMessage('Banner images must be 5 MB or smaller.',
+          isError: true);
+      return;
+    }
 
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Banner updated successfully!'),
-        backgroundColor: Colors.green,
+    setState(() {
+      _pendingBannerBytes = bytes;
+      _pendingBannerFilename = picked.name;
+    });
+  }
+
+  Future<void> _uploadBanner() async {
+    final bytes = _pendingBannerBytes;
+    final filename = _pendingBannerFilename;
+    final token = context.read<AuthProvider>().token;
+    if (bytes == null || filename == null || token == null) return;
+
+    setState(() => _isUploadingBanner = true);
+    try {
+      final bannerUrl = await ApiService.uploadRestaurantBanner(
+        token: token,
+        restaurantId: widget.restaurantId,
+        imageBytes: bytes,
+        filename: filename,
+      );
+      if (!mounted) return;
+      setState(() {
+        _bannerUrl = bannerUrl;
+        _pendingBannerBytes = null;
+        _pendingBannerFilename = null;
+      });
+      _showBannerMessage('Banner updated successfully.');
+    } catch (error) {
+      if (!mounted) return;
+      _showBannerMessage(
+        error.toString().replaceAll('Exception: ', ''),
+        isError: true,
+      );
+    } finally {
+      if (mounted) setState(() => _isUploadingBanner = false);
+    }
+  }
+
+  void _showBannerMessage(String message, {bool isError = false}) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text(message),
+      backgroundColor: isError ? AppTheme.danger : AppTheme.success,
+    ));
+  }
+
+  String? _fullBannerUrl(String? url) {
+    if (url == null || url.isEmpty) return null;
+    return url.startsWith('http') ? url : '${ApiService.baseUrl}$url';
+  }
+
+  Widget _buildBannerSection(BuildContext context, AuthProvider auth) {
+    final previewBytes = _pendingBannerBytes;
+    final existingUrl = _fullBannerUrl(_bannerUrl);
+    final hasSelection = previewBytes != null;
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.card(context),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.border(context)),
       ),
-    );
-  } catch (e) {
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Failed to upload banner: $e'),
-        backgroundColor: Colors.redAccent,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Restaurant banner',
+              style: TextStyle(
+                  color: AppColors.textPrimary(context),
+                  fontWeight: FontWeight.w700,
+                  fontSize: 15)),
+          const SizedBox(height: 6),
+          Text(
+            hasSelection
+                ? 'Preview your image before uploading.'
+                : 'JPEG, PNG, or WebP up to 5 MB.',
+            style: TextStyle(
+                color: AppColors.textSecondary(context), fontSize: 12),
+          ),
+          const SizedBox(height: 12),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(10),
+            child: SizedBox(
+              width: double.infinity,
+              height: 150,
+              child: previewBytes != null
+                  ? Image.memory(previewBytes, fit: BoxFit.cover)
+                  : existingUrl != null
+                      ? Image.network(existingUrl,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) => _emptyBannerPreview())
+                      : _emptyBannerPreview(),
+            ),
+          ),
+          const SizedBox(height: 12),
+          if (hasSelection)
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: _isUploadingBanner
+                        ? null
+                        : () => setState(() {
+                              _pendingBannerBytes = null;
+                              _pendingBannerFilename = null;
+                            }),
+                    icon: const Icon(Icons.close_rounded, size: 18),
+                    label: const Text('Cancel'),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: _isUploadingBanner ? null : _chooseBanner,
+                    icon: const Icon(Icons.photo_library_outlined, size: 18),
+                    label: const Text('Choose another'),
+                  ),
+                ),
+              ],
+            ),
+          if (hasSelection) const SizedBox(height: 8),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: _isUploadingBanner
+                  ? null
+                  : hasSelection
+                      ? _uploadBanner
+                      : (widget.restaurantId > 0 && auth.token != null
+                          ? _chooseBanner
+                          : null),
+              icon: _isUploadingBanner
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : Icon(hasSelection
+                      ? Icons.cloud_upload_outlined
+                      : Icons.add_a_photo_rounded),
+              label: Text(_isUploadingBanner
+                  ? 'Uploading...'
+                  : hasSelection
+                      ? 'Upload banner'
+                      : 'Choose banner image'),
+            ),
+          ),
+        ],
       ),
     );
   }
-}
+
+  Widget _emptyBannerPreview() {
+    return Container(
+      color: AppColors.surface(context),
+      child: Icon(Icons.image_outlined,
+          size: 42, color: AppColors.textHint(context)),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -2044,87 +2273,78 @@ Future<void> _uploadRestaurantBanner({
               Text(
                 'Settings',
                 style: TextStyle(
-                  color: AppColors.textPrimary(context),
-                  fontSize: 24,
-                  fontWeight: FontWeight.w800),
+                    color: AppColors.textPrimary(context),
+                    fontSize: 24,
+                    fontWeight: FontWeight.w800),
               ),
               const SizedBox(height: 24),
+              Expanded(
+                child: ListView(
+                  padding: const EdgeInsets.only(bottom: 20),
+                  children: [
+                    _buildBannerSection(context, auth),
+                    const SizedBox(height: 16),
 
-             // Banner Upload Button
-// Banner Upload Button
-ElevatedButton.icon(
-  onPressed: () {
-    if (widget.restaurantId > 0 && auth.token != null) {
-  _uploadRestaurantBanner(
-    token: auth.token!,
-    restaurantId: widget.restaurantId,
-  );
-} else {
-  ScaffoldMessenger.of(context).showSnackBar(
-    const SnackBar(content: Text('Loading restaurant info...')),
-  );
-}
-  },
-  icon: const Icon(Icons.add_a_photo_rounded),
-  label: const Text("Upload image for your store"),
-  style: ElevatedButton.styleFrom(
-    minimumSize: const Size(double.infinity, 48),
-  ),
-),
-              const SizedBox(height: 16),
-
-              // Kitchen toggle
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: AppColors.card(context),
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: AppColors.border(context)),
-                ),
-                child: Row(children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('Kitchen status',
-                            style: TextStyle(
-                                color: AppColors.textPrimary(context),
-                                fontWeight: FontWeight.w600,
-                                fontSize: 15)),
-                        Text(
-                          _isOpen
-                              ? 'Accepting orders'
-                              : 'Closed for orders',
-                          style: TextStyle(
-                              color: _isOpen
-                                  ? AppTheme.success
-                                  : AppColors.textHint(context),
-                              fontSize: 12),
+                    // Kitchen toggle
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: AppColors.card(context),
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(color: AppColors.border(context)),
+                      ),
+                      child: Row(children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text('Kitchen status',
+                                  style: TextStyle(
+                                      color: AppColors.textPrimary(context),
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 15)),
+                              Text(
+                                _isOpen
+                                    ? 'Accepting orders'
+                                    : 'Closed for orders',
+                                style: TextStyle(
+                                    color: _isOpen
+                                        ? AppTheme.success
+                                        : AppColors.textHint(context),
+                                    fontSize: 12),
+                              ),
+                            ],
+                          ),
                         ),
-                      ],
+                        Switch(
+                          value: _isOpen,
+                          onChanged: (v) => setState(() => _isOpen = v),
+                          activeThumbColor: AppTheme.accent,
+                        ),
+                      ]),
                     ),
-                  ),
-                  Switch(
-                    value: _isOpen,
-                    onChanged: (v) => setState(() => _isOpen = v),
-                    activeThumbColor: AppTheme.accent,
-                  ),
-                ]),
-              ),
-              const SizedBox(height: 12),
-              _row(context, Icons.storefront_outlined, 'Restaurant profile',
-                  'Edit your restaurant details'),
-              _row(context, Icons.notifications_outlined, 'Notifications',
-                  'Manage alert preferences'),
-              _row(context, Icons.lock_outline_rounded, 'Change password',
-                  'Update your password'),
-              const Spacer(),
-              GhostButton(
-                label: 'Sign out',
-                onPressed: () {
-                  auth.logout();
-                  context.go('/');
-                },
+                    const SizedBox(height: 12),
+                    _row(context, Icons.storefront_outlined,
+                        'Restaurant profile', 'Edit your restaurant details'),
+                    _row(context, Icons.notifications_outlined, 'Notifications',
+                        'Manage alert preferences'),
+                    _row(context, Icons.lock_outline_rounded, 'Change password',
+                        'Update your password'),
+                    const SizedBox(height: 8),
+                    GhostButton(
+                      label: 'Sign out',
+                      onPressed: () async {
+                        if (!await confirmLogout(context) || !context.mounted) {
+                          return;
+                        }
+                        await auth.logout();
+                        if (!context.mounted) return;
+                        showLogoutSuccess(context);
+                        context.go('/');
+                      },
+                    ),
+                  ],
+                ),
               ),
             ],
           ),
@@ -2133,8 +2353,7 @@ ElevatedButton.icon(
     );
   }
 
-  Widget _row(BuildContext ctx, IconData icon,
-      String label, String sub) {
+  Widget _row(BuildContext ctx, IconData icon, String label, String sub) {
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.all(16),
@@ -2156,8 +2375,8 @@ ElevatedButton.icon(
                       fontWeight: FontWeight.w600,
                       fontSize: 14)),
               Text(sub,
-                  style: TextStyle(
-                      color: AppColors.textHint(ctx), fontSize: 12)),
+                  style:
+                      TextStyle(color: AppColors.textHint(ctx), fontSize: 12)),
             ],
           ),
         ),

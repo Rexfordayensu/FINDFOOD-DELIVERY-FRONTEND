@@ -35,7 +35,14 @@ GoRouter createAppRouter(
     ).toString(),
     refreshListenable: auth,
     routes: [
-      GoRoute(path: '/', builder: (_, __) => const FoodFeedScreen()),
+      GoRoute(
+        path: '/',
+        builder: (_, __) => const FoodFeedScreen(initialNavIndex: 0),
+      ),
+      GoRoute(
+        path: '/search',
+        builder: (_, __) => const FoodFeedScreen(initialNavIndex: 1),
+      ),
       GoRoute(path: '/home', redirect: (_, __) => '/'),
       GoRoute(path: '/admin-dashboard', redirect: (_, __) => '/admin'),
       GoRoute(
@@ -53,9 +60,14 @@ GoRouter createAppRouter(
           final mode = state.uri.queryParameters['mode'] == 'login'
               ? VerificationMode.login
               : VerificationMode.registration;
+          final extra = state.extra;
+          final password = extra is Map<String, dynamic>
+              ? extra['password']?.toString()
+              : null;
           return EmailVerificationScreen(
             email: email,
             role: role,
+            password: password,
             mode: mode,
           );
         },
@@ -206,6 +218,10 @@ GoRouter createAppRouter(
         return requestedLocation;
       }
       if (location == '/auth/callback') return null;
+
+      if (location == '/' && auth.isLoggedIn && auth.isRestaurant) {
+        return _homeForRole(auth);
+      }
 
       final isPublic = location == '/' ||
           location == '/home' ||

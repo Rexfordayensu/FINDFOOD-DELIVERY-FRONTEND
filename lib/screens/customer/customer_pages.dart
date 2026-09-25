@@ -50,7 +50,13 @@ class _CustomerOrdersScreenState extends State<CustomerOrdersScreen> {
         title: const Text('Orders'),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 18),
-          onPressed: () => context.go('/'),
+          onPressed: () {
+            if (context.canPop()) {
+              context.pop();
+            } else {
+              context.go('/');
+            }
+          },
         ),
       ),
       body: _loading
@@ -113,8 +119,11 @@ class CustomerProfileScreen extends StatelessWidget {
             leading: const Icon(Icons.logout_rounded),
             title: const Text('Sign out'),
             onTap: () async {
+              if (!await confirmLogout(context) || !context.mounted) return;
               await context.read<AuthProvider>().logout();
-              if (context.mounted) context.go('/');
+              if (!context.mounted) return;
+              showLogoutSuccess(context);
+              context.go('/');
             },
           ),
         ],

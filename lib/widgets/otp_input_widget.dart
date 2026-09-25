@@ -15,10 +15,10 @@ class OtpInputWidget extends StatefulWidget {
   });
 
   @override
-  State<OtpInputWidget> createState() => _OtpInputWidgetState();
+  State<OtpInputWidget> createState() => OtpInputWidgetState();
 }
 
-class _OtpInputWidgetState extends State<OtpInputWidget> {
+class OtpInputWidgetState extends State<OtpInputWidget> {
   late List<FocusNode> _focusNodes;
   late List<TextEditingController> _controllers;
 
@@ -77,7 +77,7 @@ class _OtpInputWidgetState extends State<OtpInputWidget> {
     widget.onChanged(otp);
   }
 
-  void _clearAllBoxes() {
+  void clear() {
     for (final controller in _controllers) {
       controller.clear();
     }
@@ -106,9 +106,8 @@ class _OtpInputWidgetState extends State<OtpInputWidget> {
               decoration: BoxDecoration(
                 color: boxBg,
                 border: Border.all(
-                  color: _focusNodes[index].hasFocus
-                      ? AppTheme.accent
-                      : boxBorder,
+                  color:
+                      _focusNodes[index].hasFocus ? AppTheme.accent : boxBorder,
                   width: _focusNodes[index].hasFocus ? 2 : 1,
                 ),
                 borderRadius: BorderRadius.circular(12),
@@ -151,7 +150,7 @@ class _OtpInputWidgetState extends State<OtpInputWidget> {
         const SizedBox(height: 16),
         if (widget.controller.text.isNotEmpty)
           TextButton.icon(
-            onPressed: _clearAllBoxes,
+            onPressed: clear,
             icon: const Icon(Icons.clear, size: 16),
             label: const Text('Clear'),
             style: TextButton.styleFrom(

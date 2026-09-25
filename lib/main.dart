@@ -1,8 +1,11 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_web_plugins/flutter_web_plugins.dart';
 import 'package:provider/provider.dart';
+
+import 'web_url_strategy_stub.dart'
+    if (dart.library.html) 'package:flutter_web_plugins/flutter_web_plugins.dart'
+    as web_plugins;
 import 'theme.dart';
 import 'services/providers.dart';
 import 'services/otp_provider.dart';
@@ -13,7 +16,7 @@ import 'package:go_router/go_router.dart';
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
   if (kIsWeb) {
-    setUrlStrategy(PathUrlStrategy());
+    web_plugins.setUrlStrategy(web_plugins.PathUrlStrategy());
   }
   SystemChrome.setPreferredOrientations([
     DeviceOrientation.portraitUp,
@@ -100,6 +103,7 @@ class _FindFoodAppState extends State<FindFoodApp> {
           theme: AppTheme.light,
           darkTheme: AppTheme.dark,
           themeMode: themeProvider.mode,
+          scaffoldMessengerKey: appScaffoldMessengerKey,
           routerConfig: _router,
         );
       },
