@@ -103,6 +103,7 @@ class _FindFoodAppState extends State<FindFoodApp> {
           theme: AppTheme.light,
           darkTheme: AppTheme.dark,
           themeMode: themeProvider.mode,
+          scaffoldMessengerKey: appScaffoldMessengerKey,
           routerConfig: _router,
         );
       },

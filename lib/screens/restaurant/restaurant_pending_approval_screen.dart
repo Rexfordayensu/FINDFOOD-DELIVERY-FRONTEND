@@ -23,8 +23,11 @@ class _RestaurantPendingApprovalScreenState
     });
   }
 
-  void _logout() {
-    Provider.of<AuthProvider>(context, listen: false).logout();
+  Future<void> _logout() async {
+    if (!await confirmLogout(context) || !mounted) return;
+    await Provider.of<AuthProvider>(context, listen: false).logout();
+    if (!mounted) return;
+    showLogoutSuccess(context);
     Navigator.of(context).pushAndRemoveUntil(
       MaterialPageRoute(builder: (_) => const LoginScreen()),
       (_) => false,

@@ -12,12 +12,14 @@ enum VerificationMode { registration, login }
 class EmailVerificationScreen extends StatefulWidget {
   final String email;
   final String role;
+  final String? password;
   final VerificationMode mode;
 
   const EmailVerificationScreen({
     super.key,
     required this.email,
     required this.role,
+    this.password,
     this.mode = VerificationMode.registration,
   });
 
@@ -29,6 +31,7 @@ class EmailVerificationScreen extends StatefulWidget {
 class _EmailVerificationScreenState extends State<EmailVerificationScreen>
     with WidgetsBindingObserver {
   late TextEditingController _otpController;
+  final _otpInputKey = GlobalKey<OtpInputWidgetState>();
   bool _showSuccess = false;
 
   @override
@@ -59,6 +62,7 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen>
 
     final otpProvider = Provider.of<OtpProvider>(context, listen: false);
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    if (otpProvider.isVerifying || _showSuccess) return;
 
     otpProvider.setVerifying(true);
     otpProvider.setVerificationError(null);
@@ -76,12 +80,26 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen>
         final role = response['role'] as String? ?? widget.role;
         final isApproved = response['is_approved'] as bool? ?? false;
 
-        // Update auth provider
-        authProvider.setEmailVerified(true);
-        authProvider.setRestaurantApproved(isApproved);
-        if (role.isNotEmpty) {
-          authProvider.setEmail(widget.email);
+        final token = response['access_token']?.toString();
+        final loginData = token == null || token.isEmpty
+            ? await _loginAfterRegistrationVerification()
+            : response;
+        final loginToken = loginData['access_token']?.toString();
+        final userId = loginData['user_id'] is int
+            ? loginData['user_id'] as int
+            : int.tryParse('${loginData['user_id']}') ?? 0;
+        if (loginToken == null || loginToken.isEmpty) {
+          throw Exception('Verification succeeded, but automatic login failed');
         }
+
+        await authProvider.login(
+          token: loginToken,
+          userId: userId,
+          role: role,
+          email: widget.email,
+          isEmailVerified: true,
+          isRestaurantApproved: isApproved,
+        );
 
         setState(() {
           _showSuccess = true;
@@ -104,7 +122,9 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen>
         // Expected: access_token, refresh_token?, role, user_id, is_approved?
         final token = data['access_token'] as String?;
         final role = data['role'] as String? ?? widget.role;
-        final userId = (data['user_id'] is int) ? data['user_id'] as int : int.tryParse('${data['user_id']}') ?? 0;
+        final userId = (data['user_id'] is int)
+            ? data['user_id'] as int
+            : int.tryParse('${data['user_id']}') ?? 0;
         final isApproved = data['is_approved'] as bool? ?? false;
 
         if (token == null) {
@@ -137,6 +157,7 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen>
     } catch (e) {
       if (!mounted) return;
       final errorMsg = e.toString().replaceAll('Exception: ', '');
+      _otpInputKey.currentState?.clear();
       otpProvider.setVerificationError(errorMsg);
       _showErrorSnackBar(errorMsg);
     } finally {
@@ -144,6 +165,14 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen>
         otpProvider.setVerifying(false);
       }
     }
+  }
+
+  Future<Map<String, dynamic>> _loginAfterRegistrationVerification() async {
+    final password = widget.password;
+    if (password == null || password.isEmpty) {
+      throw Exception('Verification succeeded, but automatic login failed');
+    }
+    return ApiService.login(widget.email, password);
   }
 
   Future<void> _resendOtp() async {
@@ -181,15 +210,11 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen>
 
   void _navigateToNextScreen([String? overrideRole]) {
     final role = overrideRole ?? widget.role;
-    if (widget.mode == VerificationMode.registration) {
-      context.go('/login');
-      return;
-    }
-
     final route = switch (role) {
-      'restaurant' => Provider.of<AuthProvider>(context, listen: false).isRestaurantApproved
-          ? '/restaurant/orders'
-          : '/restaurant/pending',
+      'restaurant' =>
+        Provider.of<AuthProvider>(context, listen: false).isRestaurantApproved
+            ? '/restaurant/orders'
+            : '/restaurant/pending',
       'rider' => '/rider',
       'admin' => '/admin',
       _ => '/',
@@ -235,7 +260,8 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen>
           builder: (context, otpProvider, _) {
             return SafeArea(
               child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
                 child: Column(
                   children: [
                     const SizedBox(height: 24),
@@ -261,10 +287,11 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen>
                       widget.mode == VerificationMode.registration
                           ? 'Verify your email'
                           : 'Login Verification',
-                      style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: -0.5,
-                      ),
+                      style:
+                          Theme.of(context).textTheme.headlineSmall?.copyWith(
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: -0.5,
+                              ),
                       textAlign: TextAlign.center,
                     ),
 
@@ -276,10 +303,11 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen>
                           ? "We've sent a 6-digit verification code to"
                           : "We've sent a login verification code to your email.\n\nEnter the code below to continue signing in.",
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: Theme.of(context).brightness == Brightness.dark
-                            ? AppTheme.darkTextSec
-                            : AppTheme.lightTextSec,
-                      ),
+                            color:
+                                Theme.of(context).brightness == Brightness.dark
+                                    ? AppTheme.darkTextSec
+                                    : AppTheme.lightTextSec,
+                          ),
                       textAlign: TextAlign.center,
                     ),
 
@@ -289,9 +317,9 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen>
                     Text(
                       widget.email,
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        fontWeight: FontWeight.w700,
-                        color: AppTheme.accent,
-                      ),
+                            fontWeight: FontWeight.w700,
+                            color: AppTheme.accent,
+                          ),
                       textAlign: TextAlign.center,
                     ),
 
@@ -299,8 +327,11 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen>
 
                     // Verify Button
                     OtpInputWidget(
+                      key: _otpInputKey,
                       controller: _otpController,
-                      onChanged: (value) {},
+                      onChanged: (value) {
+                        if (value.length == 6) _verifyOtp();
+                      },
                       enabled: !otpProvider.isVerifying && !_showSuccess,
                     ),
 
@@ -371,7 +402,8 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen>
                               Text(
                                 'OTP expires in:',
                                 style: TextStyle(
-                                  color: Theme.of(context).brightness == Brightness.dark
+                                  color: Theme.of(context).brightness ==
+                                          Brightness.dark
                                       ? AppTheme.darkTextSec
                                       : AppTheme.lightTextSec,
                                   fontSize: 12,
@@ -401,26 +433,34 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen>
                       height: 52,
                       child: ElevatedButton(
                         onPressed: (otpProvider.isVerifying ||
-                                    otpProvider.otpExpired ||
-                                    _showSuccess)
+                                otpProvider.otpExpired ||
+                                _showSuccess)
                             ? null
                             : _verifyOtp,
                         child: otpProvider.isVerifying
-                            ? const SizedBox(
-                                width: 20,
-                                height: 20,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  valueColor: AlwaysStoppedAnimation<Color>(
-                                    AppTheme.darkBg,
+                            ? const Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  SizedBox(
+                                    width: 20,
+                                    height: 20,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      valueColor: AlwaysStoppedAnimation<Color>(
+                                        AppTheme.darkBg,
+                                      ),
+                                    ),
                                   ),
-                                ),
+                                  SizedBox(width: 8),
+                                  Text('Verifying...'),
+                                ],
                               )
                             : _showSuccess
                                 ? const Row(
                                     mainAxisAlignment: MainAxisAlignment.center,
                                     children: [
-                                      Icon(Icons.check_circle_rounded, size: 20),
+                                      Icon(Icons.check_circle_rounded,
+                                          size: 20),
                                       SizedBox(width: 8),
                                       Text('Verified'),
                                     ],
@@ -451,7 +491,8 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen>
                             Text(
                               'Resend available in ${otpProvider.resendCooldownFormatted}',
                               style: TextStyle(
-                                color: Theme.of(context).brightness == Brightness.dark
+                                color: Theme.of(context).brightness ==
+                                        Brightness.dark
                                     ? AppTheme.darkTextSec
                                     : AppTheme.lightTextSec,
                                 fontSize: 13,
@@ -464,7 +505,8 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen>
                                 Text(
                                   "Didn't receive the code?",
                                   style: TextStyle(
-                                    color: Theme.of(context).brightness == Brightness.dark
+                                    color: Theme.of(context).brightness ==
+                                            Brightness.dark
                                         ? AppTheme.darkTextSec
                                         : AppTheme.lightTextSec,
                                     fontSize: 13,
@@ -484,7 +526,8 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen>
                                             height: 16,
                                             child: CircularProgressIndicator(
                                               strokeWidth: 2,
-                                              valueColor: AlwaysStoppedAnimation<Color>(
+                                              valueColor:
+                                                  AlwaysStoppedAnimation<Color>(
                                                 AppTheme.accent,
                                               ),
                                             ),

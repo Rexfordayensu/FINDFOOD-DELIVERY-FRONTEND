@@ -4,6 +4,38 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../models/models.dart';
 import 'api_service.dart';
 
+final GlobalKey<ScaffoldMessengerState> appScaffoldMessengerKey =
+  GlobalKey<ScaffoldMessengerState>();
+
+Future<bool> confirmLogout(BuildContext context) async {
+  final confirmed = await showDialog<bool>(
+    context: context,
+    builder: (dialogContext) => AlertDialog(
+      title: const Text('Sign out?'),
+      content: const Text('Are you sure you want to sign out?'),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(dialogContext, false),
+          child: const Text('Cancel'),
+        ),
+        TextButton(
+          onPressed: () => Navigator.pop(dialogContext, true),
+          child: const Text('Sign out'),
+        ),
+      ],
+    ),
+  );
+  return confirmed ?? false;
+}
+
+void showLogoutSuccess(BuildContext context) {
+  final messenger = appScaffoldMessengerKey.currentState ??
+      ScaffoldMessenger.maybeOf(context);
+  messenger?.showSnackBar(const SnackBar(
+    content: Text('Signed out successfully.'),
+  ));
+}
+
 // ─── THEME PROVIDER ───────────────────────────────────────────────────────────
 class ThemeProvider extends ChangeNotifier {
   ThemeMode _mode = ThemeMode.dark;

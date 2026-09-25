@@ -119,8 +119,11 @@ class CustomerProfileScreen extends StatelessWidget {
             leading: const Icon(Icons.logout_rounded),
             title: const Text('Sign out'),
             onTap: () async {
+              if (!await confirmLogout(context) || !context.mounted) return;
               await context.read<AuthProvider>().logout();
-              if (context.mounted) context.go('/');
+              if (!context.mounted) return;
+              showLogoutSuccess(context);
+              context.go('/');
             },
           ),
         ],

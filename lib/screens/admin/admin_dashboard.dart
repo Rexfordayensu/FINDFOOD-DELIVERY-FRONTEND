@@ -395,8 +395,11 @@ class _AdminDashboardState extends State<AdminDashboard> {
                 const SizedBox(height: 8),
                 // Sign out
                 GestureDetector(
-                  onTap: () {
-                    auth.logout();
+                  onTap: () async {
+                    if (!await confirmLogout(context) || !context.mounted) return;
+                    await auth.logout();
+                    if (!context.mounted) return;
+                    showLogoutSuccess(context);
                     // Go to feed — splash only plays on cold start
                     Navigator.pushAndRemoveUntil(
                       context,

@@ -504,7 +504,14 @@ class _FoodFeedScreenState extends State<FoodFeedScreen>
               icon: Icons.logout_rounded,
               label: 'Sign out',
               color: AppTheme.danger,
-              onTap: () { Navigator.pop(ctx); auth.logout(); },
+              onTap: () async {
+                Navigator.pop(ctx);
+                if (!await confirmLogout(context) || !mounted) return;
+                await auth.logout();
+                if (!mounted) return;
+                showLogoutSuccess(context);
+                context.go('/');
+              },
             ),
           ],
         ),

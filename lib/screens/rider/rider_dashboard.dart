@@ -845,9 +845,12 @@ class _RiderSettingsPage extends StatelessWidget {
               const Spacer(),
               GhostButton(
                 label: 'Sign out',
-                onPressed: () {
-                  auth.logout();
-                    context.go('/');
+                onPressed: () async {
+                  if (!await confirmLogout(context) || !context.mounted) return;
+                  await auth.logout();
+                  if (!context.mounted) return;
+                  showLogoutSuccess(context);
+                  context.go('/');
                 },
               ),
             ],

@@ -100,6 +100,10 @@ class _LoginScreenState extends State<LoginScreen>
         userId: userId,
         role: role,
         email: data['email']?.toString() ?? _loginEmail.text.trim(),
+        isEmailVerified: data['is_verified'] == true ||
+            data['email_verified'] == true ||
+            data['is_email_verified'] == true,
+        isRestaurantApproved: data['is_approved'] == true,
       );
 
       if (!mounted) return;
@@ -174,6 +178,7 @@ class _LoginScreenState extends State<LoginScreen>
       if (!mounted) return;
 
       final otpRequired = otpRequiredFromResponse(data);
+      final registrationPassword = _signupPass.text;
       _showSuccess(otpRequired
           ? 'Account created! Please verify your email.'
           : 'Account created successfully.');
@@ -189,6 +194,7 @@ class _LoginScreenState extends State<LoginScreen>
       if (otpRequired) {
         context.go(
           '/email-verification?email=${Uri.encodeComponent(registrationEmail)}&role=${Uri.encodeComponent(registrationRole)}&mode=${Uri.encodeComponent('registration')}',
+          extra: {'password': registrationPassword},
         );
       } else {
         setState(() {

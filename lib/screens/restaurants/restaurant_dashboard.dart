@@ -218,8 +218,11 @@ class _PendingApprovalScreen extends StatelessWidget {
               ),
               const SizedBox(height: 12),
               TextButton(
-                onPressed: () {
-                  Provider.of<AuthProvider>(context, listen: false).logout();
+                onPressed: () async {
+                  if (!await confirmLogout(context) || !context.mounted) return;
+                  await Provider.of<AuthProvider>(context, listen: false).logout();
+                  if (!context.mounted) return;
+                  showLogoutSuccess(context);
                   context.go('/');
                 },
                 child: Text('Sign out',
@@ -2121,8 +2124,11 @@ ElevatedButton.icon(
               const Spacer(),
               GhostButton(
                 label: 'Sign out',
-                onPressed: () {
-                  auth.logout();
+                onPressed: () async {
+                  if (!await confirmLogout(context) || !context.mounted) return;
+                  await auth.logout();
+                  if (!context.mounted) return;
+                  showLogoutSuccess(context);
                   context.go('/');
                 },
               ),
