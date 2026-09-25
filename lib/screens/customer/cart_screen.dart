@@ -25,6 +25,7 @@ class _CartScreenState extends State<CartScreen> {
   Timer? _paymentVerificationTimer;
   bool _hasNavigatedToTracking = false;
   bool _isDelivery = true;
+<<<<<<< HEAD
   bool _isDetectingLocation = false;
   double? _deliveryLatitude;
   double? _deliveryLongitude;
@@ -32,6 +33,19 @@ class _CartScreenState extends State<CartScreen> {
   final _deliveryAddressController = TextEditingController();
   final _pickupNameController = TextEditingController();
   final _pickupPhoneController = TextEditingController();
+=======
+  final TextEditingController _pickupNameController = TextEditingController();
+final TextEditingController _pickupPhoneController = TextEditingController();
+final TextEditingController _kitchenNoteController = TextEditingController();
+
+@override
+void dispose() {
+  _pickupNameController.dispose();
+  _pickupPhoneController.dispose();
+  _kitchenNoteController.dispose();
+  super.dispose();
+}
+>>>>>>> d1f75c9b08079d2ea89cdb950b69509984e09271
 
   final List<PaymentProviderOption> _providers = const [
     PaymentProviderOption(value: 'paystack', label: 'Paystack'),
@@ -242,11 +256,17 @@ class _CartScreenState extends State<CartScreen> {
         restaurantId: cart.restaurantId!,
         items: cart.orderPayload,
         fulfillmentMethod: _isDelivery ? 'delivery' : 'pickup',
+<<<<<<< HEAD
         deliveryAddress: _isDelivery ? _deliveryAddressController.text : null,
         deliveryLatitude: _isDelivery ? _deliveryLatitude : null,
         deliveryLongitude: _isDelivery ? _deliveryLongitude : null,
         pickupName: !_isDelivery ? _pickupNameController.text : null,
         pickupPhone: !_isDelivery ? _pickupPhoneController.text : null,
+=======
+        pickupName: !_isDelivery ? _pickupNameController.text.trim() : null,
+        pickupPhone: !_isDelivery ? _pickupPhoneController.text.trim() : null,
+        kitchenNote: _kitchenNoteController.text.trim().isNotEmpty ? _kitchenNoteController.text.trim() : null,
+>>>>>>> d1f75c9b08079d2ea89cdb950b69509984e09271
       );
 
       final init = await ApiService.initializePayment(
@@ -451,6 +471,89 @@ class _CartScreenState extends State<CartScreen> {
                     ),
                   ),
                 ),
+                // 1. Your existing selector toggle container ends right above this line...
+const SizedBox(height: 12),
+
+// 2. Dynamic Input Fields Form for Pickup Orders:
+if (!_isDelivery) ...[
+  Container(
+    width: double.infinity,
+    padding: const EdgeInsets.all(16.0),
+    decoration: BoxDecoration(
+      color: AppTheme.darkCard, // Blends smoothly into your dark theme styling
+      borderRadius: BorderRadius.circular(12),
+      border: Border.all(color: AppTheme.darkBorder, width: 1),
+    ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          '👤 Your details',
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: 15,
+            color: Colors.white,
+          ),
+        ),
+        const SizedBox(height: 12),
+        
+        // Full Name Input Textbox
+        TextField(
+          controller: _pickupNameController,
+          style: const TextStyle(color: Colors.white),
+          decoration: InputDecoration(
+            labelText: 'Pickup Name',
+            labelStyle: const TextStyle(color: Colors.grey),
+            hintText: 'Enter name of person picking up',
+            hintStyle: const TextStyle(color: Colors.grey, fontSize: 13),
+            prefixIcon: const Icon(Icons.person_outline, color: Colors.grey),
+            filled: true,
+            fillColor: AppTheme.darkBorder,
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
+          ),
+        ),
+        const SizedBox(height: 10),
+        
+        // Mobile Money Phone Number Input Textbox
+        TextField(
+          controller: _pickupPhoneController,
+          keyboardType: TextInputType.phone,
+          style: const TextStyle(color: Colors.white),
+          decoration: InputDecoration(
+            labelText: 'Pickup Phone Number',
+            labelStyle: const TextStyle(color: Colors.grey),
+            hintText: 'e.g. 054XXXXXXX',
+            hintStyle: const TextStyle(color: Colors.grey, fontSize: 13),
+            prefixIcon: const Icon(Icons.phone_android_outlined, color: Colors.grey),
+            filled: true,
+            fillColor: AppTheme.darkBorder,
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
+          ),
+        ),
+        const SizedBox(height: 10),
+        
+        // Kitchen Notes Multi-Line Message Box
+        TextField(
+          controller: _kitchenNoteController,
+          maxLines: 2,
+          style: const TextStyle(color: Colors.white),
+          decoration: InputDecoration(
+            labelText: 'Kitchen Notes (Optional)',
+            labelStyle: const TextStyle(color: Colors.grey),
+            hintText: 'e.g. Add a little stew, etc.',
+            hintStyle: const TextStyle(color: Colors.grey, fontSize: 13),
+            prefixIcon: const Icon(Icons.chat_bubble_outline, color: Colors.grey),
+            filled: true,
+            fillColor: AppTheme.darkBorder,
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
+          ),
+        ),
+      ],
+    ),
+  ),
+  const SizedBox(height: 16),
+],
+
                 _summaryRow('Subtotal', cart.displayTotal),
                 const SizedBox(height: 8),
                 _summaryRow('Delivery fee', 'Free'),
