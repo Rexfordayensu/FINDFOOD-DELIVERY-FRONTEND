@@ -1067,13 +1067,13 @@ class ApiService {
   }
 
   // Upload restaurant banner using raw image bytes (Flutter Web compatible)
-  static Future<void> uploadRestaurantBanner({
+  static Future<String?> uploadRestaurantBanner({
     required String token,
     required int restaurantId,
     required Uint8List imageBytes,
     required String filename,
   }) async {
-    final url = Uri.parse('$baseUrl/restaurants/$restaurantId/banner');
+    final url = Uri.parse('$baseUrl/restaurants/$restaurantId/upload-banner');
     final request = http.MultipartRequest('POST', url);
 
     // Add Authorization bearer security token header
@@ -1082,7 +1082,7 @@ class ApiService {
     // Attach the raw web image file bytes
     request.files.add(
       http.MultipartFile.fromBytes(
-        'banner',
+        'file',
         imageBytes,
         filename: filename,
       ),
@@ -1091,8 +1091,8 @@ class ApiService {
     final streamedResponse = await request.send();
     final response = await http.Response.fromStream(streamedResponse);
 
-    if (response.statusCode != 200) {
-      throw Exception('Failed to upload restaurant banner image asset');
-    }
+    final data = _decode(response);
+    if (response.statusCode == 200) return data['banner_url']?.toString();
+    throw Exception(data['detail'] ?? 'Failed to upload restaurant banner');
   }
 }
